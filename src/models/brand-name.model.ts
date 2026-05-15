@@ -4,4 +4,5 @@ export interface CreateBrandNameModel {
     brandName: string;
     status: Status;
     displayOrder?: number;
+    categoryIds: number[];
 }
