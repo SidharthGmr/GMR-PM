@@ -1,3 +1,5 @@
+import { Status } from "@prisma/client";
+
 export interface ProductDto {
   id: number;
   name: string;
@@ -10,7 +12,7 @@ export interface ProductDto {
   lowStockThreshold?: number | null;
   categoryId: number;
   images: string[];
-  status: boolean;
+  status: Status;
   createdById: number;
   updatedById?: number | null;
   createdAt: Date;
@@ -28,7 +30,7 @@ export interface CreateProductDto {
   lowStockThreshold?: number | null;
   categoryId: number;
   images?: string[];
-  status?: boolean;
+  status?: Status;
   createdById: number;
 }
 
@@ -43,7 +45,7 @@ export interface UpdateProductDto {
   lowStockThreshold?: number | null;
   categoryId?: number;
   images?: string[];
-  status?: boolean;
+  status?: Status;
   updatedById?: number | null;
   updatedAt?: Date;
 }

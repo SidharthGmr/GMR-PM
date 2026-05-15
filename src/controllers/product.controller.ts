@@ -6,6 +6,7 @@ import CustomResponse from "../dtos/custom-response";
 import { CreateProductDto, ProductDto, UpdateProductDto } from "../dtos/product.dto";
 import { ListResponseDto } from "../dtos/list-response.dto";
 import { ProductFilterParams } from "../params/product.params";
+import { Status } from "@prisma/client";
 
 export class ProductController {
   constructor(
@@ -22,7 +23,7 @@ export class ProductController {
         recordPerPage: req.query['recordPerPage'] ? parseInt(req.query['recordPerPage'] as string) : undefined,
         search: req.query['search'] as string | undefined,
         categoryId: req.query['categoryId'] ? parseInt(req.query['categoryId'] as string) : undefined,
-        status: req.query['status'] !== undefined ? req.query['status'] === 'true' : undefined,
+        status: req.query['status'] ? req.query['status'] as Status : undefined,
         showAllRecords: req.query['showAllRecords'] !== undefined ? req.query['showAllRecords'] === 'true' : undefined,
         startDate: req.query['startDate'] ? new Date(req.query['startDate'] as string) : undefined,
         endDate: req.query['endDate'] ? new Date(req.query['endDate'] as string) : undefined,

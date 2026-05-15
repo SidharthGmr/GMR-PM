@@ -1,3 +1,5 @@
+import { Status } from "@prisma/client";
+
 export interface ProductVariantDto {
   id: number;
   productId: number;
@@ -9,6 +11,8 @@ export interface ProductVariantDto {
   extraPrice?: number | null;
   stock: number;
   isDefault: boolean;
+  status: Status;
+  displayOrder?: number | null;
 }
 
 export interface CreateProductVariantDto {
@@ -21,6 +25,8 @@ export interface CreateProductVariantDto {
   extraPrice?: number | null;
   stock?: number;
   isDefault?: boolean;
+  status?: Status;
+  displayOrder?: number | null;
 }
 
 export interface UpdateProductVariantDto {
@@ -32,4 +38,6 @@ export interface UpdateProductVariantDto {
   extraPrice?: number | null;
   stock?: number;
   isDefault?: boolean;
+  status?: Status;
+  displayOrder?: number | null;
 }

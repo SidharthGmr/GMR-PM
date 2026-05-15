@@ -14,6 +14,9 @@ CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PARTIAL', 'PAID', 'OVERDUE', 'C
 CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'ONLINE');
 
 -- CreateEnum
+CREATE TYPE "Status" AS ENUM ('Published', 'Draft', 'Trash');
+
+-- CreateEnum
 CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED');
 
 -- CreateTable
@@ -32,16 +35,18 @@ CREATE TABLE "users" (
     "emailVerificationExpires" TIMESTAMP(3),
     "isPhoneVerified" BOOLEAN NOT NULL DEFAULT false,
     "profileImageUrl" TEXT,
+    "googleId" TEXT,
     "loginAttempts" INTEGER NOT NULL DEFAULT 0,
     "lastLoginAt" TIMESTAMP(3),
     "lastLoginIP" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3),
-    "status" BOOLEAN NOT NULL DEFAULT true,
+    "status" "Status" NOT NULL DEFAULT 'Published',
     "token" TEXT,
     "tokenUpdated" BOOLEAN NOT NULL DEFAULT false,
     "refreshToken" TEXT,
     "metadata" JSONB,
+    "storeId" INTEGER,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -63,12 +68,29 @@ CREATE TABLE "userProfile" (
 );
 
 -- CreateTable
+CREATE TABLE "Store" (
+    "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "address" TEXT,
+    "phone" TEXT,
+    "email" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "status" "Status" NOT NULL DEFAULT 'Published',
+
+    CONSTRAINT "Store_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Category" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
-    "slug" TEXT NOT NULL,
     "description" TEXT,
     "parentId" INTEGER,
+    "status" "Status" NOT NULL DEFAULT 'Published',
+    "displayOrder" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -79,6 +101,7 @@ CREATE TABLE "Category" (
 CREATE TABLE "Product" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
+    "brandNameId" INTEGER,
     "slug" TEXT NOT NULL,
     "description" TEXT,
     "sku" TEXT NOT NULL,
@@ -88,11 +111,13 @@ CREATE TABLE "Product" (
     "lowStockThreshold" INTEGER DEFAULT 5,
     "categoryId" INTEGER NOT NULL,
     "images" TEXT[],
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdById" INTEGER NOT NULL,
-    "updatedById" INTEGER,
+    "storeId" INTEGER,
+    "status" "Status" NOT NULL DEFAULT 'Published',
+    "displayOrder" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdById" INTEGER NOT NULL,
+    "updatedById" INTEGER,
 
     CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
 );
@@ -101,6 +126,8 @@ CREATE TABLE "Product" (
 CREATE TABLE "ProductVariant" (
     "id" SERIAL NOT NULL,
     "productId" INTEGER NOT NULL,
+    "brandName" TEXT,
+    "varient" TEXT,
     "size" TEXT,
     "material" TEXT,
     "voltage" TEXT,
@@ -109,8 +136,20 @@ CREATE TABLE "ProductVariant" (
     "extraPrice" DOUBLE PRECISION,
     "stock" INTEGER NOT NULL DEFAULT 0,
     "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "status" "Status" NOT NULL DEFAULT 'Published',
+    "displayOrder" INTEGER DEFAULT 0,
 
     CONSTRAINT "ProductVariant_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "BrandName" (
+    "id" SERIAL NOT NULL,
+    "brandName" TEXT NOT NULL,
+    "status" "Status" NOT NULL DEFAULT 'Published',
+    "displayOrder" INTEGER DEFAULT 0,
+
+    CONSTRAINT "BrandName_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -118,6 +157,8 @@ CREATE TABLE "Attribute" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "unit" TEXT,
+    "status" "Status" NOT NULL DEFAULT 'Published',
+    "displayOrder" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -130,6 +171,8 @@ CREATE TABLE "ProductAttribute" (
     "productId" INTEGER NOT NULL,
     "attributeId" INTEGER NOT NULL,
     "value" TEXT NOT NULL,
+    "status" "Status" NOT NULL DEFAULT 'Published',
+    "displayOrder" INTEGER DEFAULT 0,
 
     CONSTRAINT "ProductAttribute_pkey" PRIMARY KEY ("id")
 );
@@ -147,6 +190,7 @@ CREATE TABLE "StaffAttendance" (
     "recordedBy" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "storeId" INTEGER,
 
     CONSTRAINT "StaffAttendance_pkey" PRIMARY KEY ("id")
 );
@@ -166,6 +210,7 @@ CREATE TABLE "Order" (
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "storeId" INTEGER,
 
     CONSTRAINT "Order_pkey" PRIMARY KEY ("id")
 );
@@ -218,8 +263,15 @@ CREATE TABLE "StaffSalary" (
     "processedBy" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "storeId" INTEGER,
 
     CONSTRAINT "StaffSalary_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "_BrandNameToCategory" (
+    "A" INTEGER NOT NULL,
+    "B" INTEGER NOT NULL
 );
 
 -- CreateIndex
@@ -250,10 +302,13 @@ CREATE INDEX "users_role_idx" ON "users"("role");
 CREATE UNIQUE INDEX "userProfile_userId_key" ON "userProfile"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
+CREATE UNIQUE INDEX "Store_name_key" ON "Store"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Category_slug_key" ON "Category"("slug");
+CREATE UNIQUE INDEX "Store_code_key" ON "Store"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Product_slug_key" ON "Product"("slug");
@@ -265,7 +320,13 @@ CREATE UNIQUE INDEX "Product_sku_key" ON "Product"("sku");
 CREATE UNIQUE INDEX "ProductVariant_extraSku_key" ON "ProductVariant"("extraSku");
 
 -- CreateIndex
+CREATE INDEX "BrandName_id_idx" ON "BrandName"("id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Attribute_name_key" ON "Attribute"("name");
+
+-- CreateIndex
+CREATE INDEX "Attribute_id_idx" ON "Attribute"("id");
 
 -- CreateIndex
 CREATE INDEX "StaffAttendance_staffId_idx" ON "StaffAttendance"("staffId");
@@ -318,6 +379,15 @@ CREATE INDEX "StaffSalary_month_year_idx" ON "StaffSalary"("month", "year");
 -- CreateIndex
 CREATE UNIQUE INDEX "StaffSalary_staffId_month_year_key" ON "StaffSalary"("staffId", "month", "year");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "_BrandNameToCategory_AB_unique" ON "_BrandNameToCategory"("A", "B");
+
+-- CreateIndex
+CREATE INDEX "_BrandNameToCategory_B_index" ON "_BrandNameToCategory"("B");
+
+-- AddForeignKey
+ALTER TABLE "users" ADD CONSTRAINT "users_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "userProfile" ADD CONSTRAINT "userProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -325,13 +395,19 @@ ALTER TABLE "userProfile" ADD CONSTRAINT "userProfile_userId_fkey" FOREIGN KEY (
 ALTER TABLE "Category" ADD CONSTRAINT "Category_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Product" ADD CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Product" ADD CONSTRAINT "Product_brandNameId_fkey" FOREIGN KEY ("brandNameId") REFERENCES "BrandName"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Product" ADD CONSTRAINT "Product_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Product" ADD CONSTRAINT "Product_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Product" ADD CONSTRAINT "Product_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Product" ADD CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ProductVariant" ADD CONSTRAINT "ProductVariant_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -349,7 +425,13 @@ ALTER TABLE "StaffAttendance" ADD CONSTRAINT "StaffAttendance_staffId_fkey" FORE
 ALTER TABLE "StaffAttendance" ADD CONSTRAINT "StaffAttendance_recordedBy_fkey" FOREIGN KEY ("recordedBy") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "StaffAttendance" ADD CONSTRAINT "StaffAttendance_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Order" ADD CONSTRAINT "Order_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Order" ADD CONSTRAINT "Order_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -364,7 +446,16 @@ ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_variantId_fkey" FOREIGN KEY ("
 ALTER TABLE "Payment" ADD CONSTRAINT "Payment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "StaffSalary" ADD CONSTRAINT "StaffSalary_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "StaffSalary" ADD CONSTRAINT "StaffSalary_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "StaffSalary" ADD CONSTRAINT "StaffSalary_processedBy_fkey" FOREIGN KEY ("processedBy") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_BrandNameToCategory" ADD CONSTRAINT "_BrandNameToCategory_A_fkey" FOREIGN KEY ("A") REFERENCES "BrandName"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_BrandNameToCategory" ADD CONSTRAINT "_BrandNameToCategory_B_fkey" FOREIGN KEY ("B") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;

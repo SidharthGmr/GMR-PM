@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, Status } from '@prisma/client';
 import prisma from '../config/prisma';
 import { CreateProductDto, ProductDto, UpdateProductDto } from '../dtos/product.dto';
 import { ListResponseDto } from '../dtos/list-response.dto';
@@ -13,7 +13,7 @@ export class ProductRepository implements IProductRepository {
     sortBy = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc'
   ): Promise<ListResponseDto<ProductDto>> {
-    const where: Prisma.ProductWhereInput = {};
+    const where: Prisma.ProductWhereInput = { NOT: { status: Status.Trash } };
 
     if (filters) {
       page = filters.page ?? page;
@@ -26,7 +26,12 @@ export class ProductRepository implements IProductRepository {
       }
 
       if (filters.categoryId !== undefined) where.categoryId = filters.categoryId;
-      if (filters.status !== undefined) where.status = filters.status;
+
+      if (filters.status !== undefined) {
+        where.status = filters.status;
+      } else {
+        where.NOT = { status: Status.Trash };
+      }
 
       if (filters.startDate !== undefined || filters.endDate !== undefined) {
         where.createdAt = {
@@ -70,6 +75,6 @@ export class ProductRepository implements IProductRepository {
   }
 
   async delete(id: number): Promise<ProductDto> {
-    return prisma.product.update({ where: { id }, data: { status: false } });
+    return prisma.product.update({ where: { id }, data: { status: Status.Trash } });
   }
 }

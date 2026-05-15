@@ -1,14 +1,52 @@
+import { Prisma, Status } from "@prisma/client";
 import prisma from "../config/prisma";
 import { CreateProductVariantDto, ProductVariantDto, UpdateProductVariantDto } from "../dtos/product-variant.dto";
+import { ListResponseDto } from "../dtos/list-response.dto";
+import { ProductVariantFilterParams } from "../params/product-variant.params";
 import { IProductVariantRepository } from "./interfaces/iproduct-variant.repository";
 
 export class ProductVariantRepository implements IProductVariantRepository {
-  async findAll(): Promise<ProductVariantDto[]> {
-    return prisma.productVariant.findMany();
+  async findAll(
+    filters?: ProductVariantFilterParams,
+    page = 1,
+    limit = 10,
+    sortBy = 'displayOrder',
+    sortOrder: 'asc' | 'desc' = 'asc'
+  ): Promise<ListResponseDto<ProductVariantDto>> {
+    const where: Prisma.ProductVariantWhereInput = { NOT: { status: Status.Trash } };
+
+    if (filters) {
+      page = filters.page ?? page;
+      limit = filters.recordPerPage ?? limit;
+
+      if (filters.productId !== undefined) where.productId = filters.productId;
+
+      if (filters.status !== undefined) {
+        where.status = filters.status;
+      } else {
+        where.NOT = { status: Status.Trash };
+      }
+    }
+
+    const showAll = filters?.showAllRecords === true;
+    const skip = showAll ? undefined : (page - 1) * limit;
+    const take = showAll ? undefined : limit;
+
+    const [data, total] = await Promise.all([
+      prisma.productVariant.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        ...(skip !== undefined && { skip }),
+        ...(take !== undefined && { take }),
+      }),
+      prisma.productVariant.count({ where }),
+    ]);
+
+    return { totalRecord: total, data };
   }
 
   async findByProductId(productId: number): Promise<ProductVariantDto[]> {
-    return prisma.productVariant.findMany({ where: { productId } });
+    return prisma.productVariant.findMany({ where: { productId, NOT: { status: Status.Trash } } });
   }
 
   async findById(id: number): Promise<ProductVariantDto | null> {
@@ -24,6 +62,6 @@ export class ProductVariantRepository implements IProductVariantRepository {
   }
 
   async delete(id: number): Promise<ProductVariantDto> {
-    return prisma.productVariant.delete({ where: { id } });
+    return prisma.productVariant.update({ where: { id }, data: { status: Status.Trash } });
   }
 }

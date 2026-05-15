@@ -80,7 +80,7 @@ model users {
   lastLoginIP              String?
   createdAt                DateTime          @default(now())
   updatedAt                DateTime?         @updatedAt
-  status                   Boolean           @default(true)
+  status                   Status            @default(Published)
   token                    String?
   tokenUpdated             Boolean           @default(false)
   refreshToken             String?
@@ -126,7 +126,7 @@ model Store {
   isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  status           Boolean           @default(true)
+  status           Status            @default(Published)
   // Relations
   Product          Product[]
   orders           Order[]
@@ -137,17 +137,18 @@ model Store {
 
 // ========== PRODUCT MANAGEMENT ==========
 model Category {
-  id           Int        @id @default(autoincrement())
-  name         String     @unique
+  id           Int         @id @default(autoincrement())
+  name         String      @unique
   description  String?
   parentId     Int?
-  parent       Category?  @relation("CategoryToParent", fields: [parentId], references: [id])
-  children     Category[] @relation("CategoryToParent")
+  status       Status      @default(Published)
+  displayOrder Int?        @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  parent       Category?   @relation("CategoryToParent", fields: [parentId], references: [id])
+  children     Category[]  @relation("CategoryToParent")
   products     Product[]
-  status       Boolean    @default(true)
-  displayOrder Int?       @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  brandNames   BrandName[]
 }
 
 model Product {
@@ -164,7 +165,7 @@ model Product {
   categoryId        Int
   images            String[]
   storeId           Int?
-  status            Boolean  @default(true)
+  status            Status   @default(Published)
   displayOrder      Int?     @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -195,17 +196,20 @@ model ProductVariant {
   extraPrice   Float?
   stock        Int         @default(0)
   isDefault    Boolean     @default(false)
-  status       Boolean     @default(true)
+  status       Status      @default(Published)
   displayOrder Int?        @default(0)
   orderItems   OrderItem[]
 }
 
 model BrandName {
-  id           Int       @id @default(autoincrement())
-  brandName    String?
-  status       Boolean   @default(true)
-  displayOrder Int?      @default(0)
+  id           Int        @id @default(autoincrement())
+  brandName    String
+  status       Status     @default(Published)
+  displayOrder Int?       @default(0)
   Product      Product[]
+  categories   Category[]
+
+  @@index([id])
 }
 
 model Attribute {
@@ -217,6 +221,8 @@ model Attribute {
   productAttributes ProductAttribute[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+
+  @@index([id])
 }
 
 model ProductAttribute {
@@ -226,7 +232,7 @@ model ProductAttribute {
   attributeId  Int
   attribute    Attribute @relation(fields: [attributeId], references: [id])
   value        String
-  status       Boolean   @default(true)
+  status       Status    @default(Published)
   displayOrder Int?      @default(0)
 }
 
