@@ -1,9 +1,19 @@
 import { Prisma, Status } from '@prisma/client';
 import prisma from '../config/prisma';
-import { CreateProductDto, ProductDto, UpdateProductDto } from '../dtos/product.dto';
+import { CreateProductDto, ProductResponseDto } from '../dtos/product.dto';
 import { ListResponseDto } from '../dtos/list-response.dto';
 import { ProductFilterParams } from '../params/product.params';
 import { IProductRepository } from './interfaces/iproduct.repository';
+
+const productInclude = {
+  brandName: true,
+  category: true,
+  variants: { where: { status: { not: Status.Trash } } },
+  attributes: {
+    include: { attribute: true },
+    where: { status: { not: Status.Trash } },
+  },
+} satisfies Prisma.ProductInclude;
 
 export class ProductRepository implements IProductRepository {
   async findAll(
@@ -12,7 +22,7 @@ export class ProductRepository implements IProductRepository {
     limit = 10,
     sortBy = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc'
-  ): Promise<ListResponseDto<ProductDto>> {
+  ): Promise<ListResponseDto<ProductResponseDto>> {
     const where: Prisma.ProductWhereInput = { NOT: { status: Status.Trash } };
 
     if (filters) {
@@ -22,10 +32,13 @@ export class ProductRepository implements IProductRepository {
       if (filters.search) {
         where.OR = [
           { name: { contains: filters.search, mode: 'insensitive' } },
+          { sku: { contains: filters.search, mode: 'insensitive' } },
         ];
       }
 
       if (filters.categoryId !== undefined) where.categoryId = filters.categoryId;
+      if (filters.brandNameId !== undefined) where.brandNameId = filters.brandNameId;
+      if (filters.storeId !== undefined) where.storeId = filters.storeId;
 
       if (filters.status !== undefined) {
         where.status = filters.status;
@@ -48,6 +61,7 @@ export class ProductRepository implements IProductRepository {
     const [data, total] = await Promise.all([
       prisma.product.findMany({
         where,
+        include: productInclude,
         orderBy: { [sortBy]: sortOrder },
         ...(skip !== undefined && { skip }),
         ...(take !== undefined && { take }),
@@ -58,23 +72,27 @@ export class ProductRepository implements IProductRepository {
     return { totalRecord: total, data };
   }
 
-  async findById(id: number): Promise<ProductDto | null> {
-    return prisma.product.findUnique({ where: { id } });
+  async findById(id: number): Promise<ProductResponseDto | null> {
+    return prisma.product.findUnique({ where: { id }, include: productInclude });
   }
 
-  async findBySlug(slug: string): Promise<ProductDto | null> {
-    return prisma.product.findUnique({ where: { slug } });
+  async findBySlug(slug: string): Promise<ProductResponseDto | null> {
+    return prisma.product.findUnique({ where: { slug }, include: productInclude });
   }
 
-  async create(data: CreateProductDto): Promise<ProductDto> {
-    return prisma.product.create({ data });
+  async findBySku(sku: string): Promise<ProductResponseDto | null> {
+    return prisma.product.findUnique({ where: { sku }, include: productInclude });
   }
 
-  async update(id: number, data: UpdateProductDto): Promise<ProductDto> {
-    return prisma.product.update({ where: { id }, data });
+  async create(data: CreateProductDto): Promise<ProductResponseDto> {
+    return prisma.product.create({ data, include: productInclude });
   }
 
-  async delete(id: number): Promise<ProductDto> {
+  async update(id: number, data: CreateProductDto): Promise<ProductResponseDto> {
+    return prisma.product.update({ where: { id }, data, include: productInclude });
+  }
+
+  async delete(id: number): Promise<ProductResponseDto> {
     return prisma.product.update({ where: { id }, data: { status: Status.Trash } });
   }
 }
