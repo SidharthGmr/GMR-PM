@@ -95,6 +95,7 @@ model users {
   staffSalaries            StaffSalary[]     @relation("salary_staff")
   processedSalaries        StaffSalary[]     @relation("salary_processor")
   Store                    Store?            @relation(fields: [storeId], references: [id])
+  Staff                    Staff?
 
   @@index([userId])
   @@index([email])
@@ -133,6 +134,7 @@ model Store {
   staff            users[] // employees of this store
   staffAttendances StaffAttendance[]
   StaffSalary      StaffSalary[]
+  staffDetails     Staff[]
 }
 
 // ========== PRODUCT MANAGEMENT ==========
@@ -250,6 +252,26 @@ model ProductVariant {
   orderItems         OrderItem[]
   Attribute          Attribute?        @relation(fields: [attributeId], references: [id])
   attributeId        Int?
+}
+
+model Staff {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  storeId    Int
+  position   String? // Job title/position
+  department String?
+  hireDate   DateTime @default(now())
+  salary     Float?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user  users @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([isActive])
 }
 
 // ========== STAFF ATTENDANCE ==========

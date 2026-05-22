@@ -12,7 +12,7 @@ export class ProductVariantRepository implements IProductVariantRepository {
     limit = 10,
     sortBy = 'displayOrder',
     sortOrder: 'asc' | 'desc' = 'asc'
-  ): Promise<ListResponseDto<ProductVariantDto>> {
+  ) {
     const where: Prisma.ProductVariantWhereInput = { NOT: { status: Status.Trash } };
 
     if (filters) {
@@ -45,23 +45,23 @@ export class ProductVariantRepository implements IProductVariantRepository {
     return { totalRecord: total, data };
   }
 
-  async findByProductId(productId: number): Promise<ProductVariantDto[]> {
+  async findByProductId(productId: number) {
     return prisma.productVariant.findMany({ where: { productId, NOT: { status: Status.Trash } } });
   }
 
-  async findById(id: number): Promise<ProductVariantDto | null> {
+  async findById(id: number) {
     return prisma.productVariant.findUnique({ where: { id } });
   }
 
-  async create(data: CreateProductVariantDto): Promise<ProductVariantDto> {
+  async create(data: CreateProductVariantDto) {
     return prisma.productVariant.create({ data });
   }
 
-  async update(id: number, data: UpdateProductVariantDto): Promise<ProductVariantDto> {
+  async update(id: number, data: UpdateProductVariantDto) {
     return prisma.productVariant.update({ where: { id }, data });
   }
 
-  async delete(id: number): Promise<ProductVariantDto> {
+  async delete(id: number) {
     return prisma.productVariant.update({ where: { id }, data: { status: Status.Trash } });
   }
 }
