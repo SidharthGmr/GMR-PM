@@ -182,32 +182,14 @@ model Product {
   attributes ProductAttribute[]
 }
 
-model ProductVariant {
-  id           Int         @id @default(autoincrement())
-  productId    Int
-  product      Product     @relation(fields: [productId], references: [id])
-  brandName    String?
-  varient      String?
-  size         String?
-  material     String?
-  voltage      String?
-  color        String?
-  extraSku     String?     @unique
-  extraPrice   Float?
-  stock        Int         @default(0)
-  isDefault    Boolean     @default(false)
-  status       Status      @default(Published)
-  displayOrder Int?        @default(0)
-  orderItems   OrderItem[]
-}
-
 model BrandName {
-  id           Int        @id @default(autoincrement())
-  brandName    String
-  status       Status     @default(Published)
-  displayOrder Int?       @default(0)
-  Product      Product[]
-  categories   Category[]
+  id             Int              @id @default(autoincrement())
+  brandName      String
+  status         Status           @default(Published)
+  displayOrder   Int?             @default(0)
+  Product        Product[]
+  categories     Category[]
+  ProductVariant ProductVariant[]
 
   @@index([id])
 }
@@ -221,19 +203,53 @@ model Attribute {
   productAttributes ProductAttribute[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  ProductVariant    ProductVariant[]
 
   @@index([id])
 }
 
 model ProductAttribute {
-  id           Int       @id @default(autoincrement())
-  productId    Int
-  product      Product   @relation(fields: [productId], references: [id])
-  attributeId  Int
-  attribute    Attribute @relation(fields: [attributeId], references: [id])
-  value        String
-  status       Status    @default(Published)
-  displayOrder Int?      @default(0)
+  id             Int              @id @default(autoincrement())
+  productId      Int
+  product        Product          @relation(fields: [productId], references: [id])
+  attributeId    Int
+  attribute      Attribute        @relation(fields: [attributeId], references: [id])
+  value          String
+  status         Status           @default(Published)
+  displayOrder   Int?             @default(0)
+  ProductVariant ProductVariant[]
+}
+
+model ProductVariant {
+  id                 Int               @id @default(autoincrement())
+  name               String
+  slug               String?           @unique
+  productId          Int
+  brandNameId        Int?
+  productAttributeId Int?
+  cost               Int               @default(0) // keeping as string to accommodate various formats (e.g., "10.99", "10 USD")
+  Price              Int               @default(0) // keeping as string to accommodate various formats (e.g., "10.99", "10 USD")
+  stock              Int               @default(0)
+  lowStockThreshold  Int?              @default(5)
+  images             String[]
+  status             Status            @default(Published)
+  displayOrder       Int?              @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime?         @updatedAt
+  isDefault          Boolean           @default(false)
+  extraPrice         Float?
+  varient            String?
+  size               String?
+  material           String?
+  voltage            String?
+  color              String?
+  extraSku           String?           @unique
+  product            Product           @relation(fields: [productId], references: [id])
+  brandName          BrandName?        @relation(fields: [brandNameId], references: [id])
+  productAttribute   ProductAttribute? @relation(fields: [productAttributeId], references: [id])
+  orderItems         OrderItem[]
+  Attribute          Attribute?        @relation(fields: [attributeId], references: [id])
+  attributeId        Int?
 }
 
 // ========== STAFF ATTENDANCE ==========
