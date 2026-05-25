@@ -52,9 +52,7 @@ export class AccountService implements IAccountService {
 
   async create(data: CreateUserModel, role: Role) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
-
     const { otp } = generateOtp();
-
     return this.unitOfWork.transaction(async (transactionClient) => {
       const user = await transactionClient.users.create({
         data: {
@@ -69,8 +67,6 @@ export class AccountService implements IAccountService {
           isActive: false,
           isEmailVerified: false,
           isPhoneVerified: false,
-          googleId: data.googleId || null,
-          profileImageUrl: data.profileImage || null,
         },
       });
 
@@ -86,7 +82,7 @@ export class AccountService implements IAccountService {
       userName: user.userName,
       email: user.email,
       phone: user.phone,
-      password: includePassword ? user.password : null,
+      password: includePassword ? user.password : '',
       role: user.role,
       isActive: user.isActive,
       isEmailVerified: user.isEmailVerified,
@@ -103,6 +99,7 @@ export class AccountService implements IAccountService {
       token: token ? user.token : null,
       tokenUpdated: user.tokenUpdated,
       refreshToken: token ? user.refreshToken : null,
+      storeId: user.storeId,
     };
   }
 

@@ -7,8 +7,7 @@ export interface UserDto {
   userName: string;
   phone?: string | null;
   email: string;
-  password?: string | null;
-  googleId?: string | null;
+  password: string | null;
   role: Role;
   isActive: boolean;
   isEmailVerified: boolean;
@@ -25,6 +24,7 @@ export interface UserDto {
   token?: string | null;
   tokenUpdated: boolean;
   refreshToken?: string | null;
+  storeId?: number | null;
 }
 export interface CreateUserDto {
   userId: string;
@@ -36,16 +36,16 @@ export interface CreateUserDto {
   role: Role;
   isActive: boolean;
   createdAt: Date;
-  googleId?: string | null;
-  profileImageUrl?: string | null;
+  storeId?: number | null;
 }
 export interface UpdateUserDto {
-  name: string;
+  name?: string;
   userName?: string;
   phone?: string | null;
   updatedAt?: Date | null;
   profileImageUrl?: string | null;
   status?: Status;
+  storeId?: number | null;
 }
 
 export interface UpdateOtpDto {

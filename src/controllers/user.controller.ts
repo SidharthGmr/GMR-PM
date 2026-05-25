@@ -4,7 +4,7 @@ import IUnitOfService from '../services/interfaces/iunitof.service';
 import { Request, Response } from 'express';
 import CustomResponse from '../dtos/custom-response';
 import { UpdateUserDto, UserDto } from '../dtos/user.dto';
-import CustomError from '../exceptions/custom-error'; 
+import CustomError from '../exceptions/custom-error';
 import { ListResponseDto } from '../dtos/list-response.dto';
 
 export class UserController {
@@ -30,10 +30,13 @@ export class UserController {
     return res.status(200).json(response);
   };
 
-  getUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const { userId } = req.params;
+  getUserById = async (
+    req: Request,
+    res: Response
+  ): Promise<Response<CustomResponse<UserDto>>> => {
+    // Invalidate the token (implementation depends on token storage strategy, e.g., blacklist)
+    const userId = req.user?.userId;
     let response: CustomResponse<UserDto>;
-
     if (!userId) {
       response = { success: false, message: 'userId is required' };
       return res.status(400).json(response);
@@ -52,28 +55,40 @@ export class UserController {
     };
 
     return res.status(200).json(response);
-  };
+  }
 
-  getUserByEmail = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const { email } = req.params;
 
+
+  getUserByEmail = async (
+    req: Request,
+    res: Response
+  ): Promise<Response<CustomResponse<UserDto>>> => {
+    // Invalidate the token (implementation depends on token storage strategy, e.g., blacklist)
+    const email = req.user?.email;
+    let response: CustomResponse<UserDto>;
     if (!email) {
-      throw new CustomError('Email is required', 400);
+      response = { success: false, message: 'email is required' };
+      return res.status(400).json(response);
     }
+
     const user = await this.unitOfService.User.getByEmail(email, false);
     if (!user) {
-      throw new CustomError('User not found', 404);
+      response = { success: false, message: 'User not found' };
+      return res.status(404).json(response);
     }
-    const response: CustomResponse<UserDto> = {
+
+    response = {
       success: true,
       message: 'User fetched successfully',
       data: user,
     };
+
     return res.status(200).json(response);
-  };
+  }
 
   updateUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const userId = req.params.userId;
+
+    const userId = req.user?.userId;
     if (!userId) {
       const response: CustomResponse<UserDto> = {
         success: false,
@@ -97,7 +112,8 @@ export class UserController {
   };
 
   updateStatusById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const userId = req.params.userId;
+
+    const userId = req.user?.userId;
     if (!userId) {
       const response: CustomResponse<UserDto> = {
         success: false,
@@ -121,7 +137,7 @@ export class UserController {
   };
 
   deleteUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const userId = req.params.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       const response: CustomResponse<UserDto> = {
         success: false,
@@ -137,6 +153,40 @@ export class UserController {
     const response: CustomResponse<UserDto> = {
       success: true,
       message: 'User deleted successfully',
+      data: user,
+    };
+
+    return res.status(200).json(response);
+  };
+
+  assignStore = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const userId = req.user?.userId;
+    const { storeId } = req.body as { storeId: number };
+
+    if (!userId) {
+      throw new CustomError('userId is required', 400);
+    }
+
+    if (!storeId) {
+      throw new CustomError('storeId is required', 400);
+    }
+
+    // Verify store exists
+    const store = await this.unitOfService.Store.getById(storeId);
+    if (!store) {
+      throw new CustomError('Store not found', 404);
+    }
+
+    // Update user with storeId
+    const user = await this.unitOfService.User.update(userId, { storeId });
+
+    if (!user) {
+      throw new CustomError('Failed to assign store', 500);
+    }
+
+    const response: CustomResponse<UserDto> = {
+      success: true,
+      message: 'Store assigned successfully',
       data: user,
     };
 

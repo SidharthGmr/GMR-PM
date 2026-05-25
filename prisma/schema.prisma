@@ -74,7 +74,6 @@ model users {
   emailVerificationExpires DateTime?
   isPhoneVerified          Boolean           @default(false)
   profileImageUrl          String?
-  googleId                 String?
   loginAttempts            Int               @default(0)
   lastLoginAt              DateTime?
   lastLoginIP              String?
@@ -87,15 +86,15 @@ model users {
   metadata                 Json?
   storeId                  Int?
   profile                  userProfile?
-  productsCreated          Product[]         @relation("CreatedBy")
-  productsUpdated          Product[]         @relation("UpdatedBy")
-  orders                   Order[] // customer orders placed by this user  
-  staffAttendances         StaffAttendance[] @relation("staff_member")
-  recordedAttendances      StaffAttendance[] @relation("staff_attendance_recorder")
-  staffSalaries            StaffSalary[]     @relation("salary_staff")
-  processedSalaries        StaffSalary[]     @relation("salary_processor")
-  Store                    Store?            @relation(fields: [storeId], references: [id])
-  Staff                    Staff?
+  productsCreated          product[]         @relation("CreatedBy")
+  productsUpdated          product[]         @relation("UpdatedBy")
+  orders                   order[] // customer orders placed by this user  
+  staffAttendances         staffAttendance[] @relation("staff_member")
+  recordedAttendances      staffAttendance[] @relation("staff_attendance_recorder")
+  staffSalaries            staffSalary[]     @relation("salary_staff")
+  processedSalaries        staffSalary[]     @relation("salary_processor")
+  store                    store?            @relation(fields: [storeId], references: [id])
+  staff                    staff?
 
   @@index([userId])
   @@index([email])
@@ -117,43 +116,55 @@ model userProfile {
   updatedAt   DateTime  @updatedAt
 }
 
-model Store {
-  id               Int               @id @default(autoincrement())
-  name             String            @unique
-  code             String            @unique
-  address          String?
-  phone            String?
-  email            String?
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  status           Status            @default(Published)
+model store {
+  id                Int                @id @default(autoincrement())
+  name              String             @unique
+  code              String             @unique
+  address           String?
+  phone             String?
+  email             String?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  status            Status             @default(Published)
   // Relations
-  Product          Product[]
-  orders           Order[]
-  staff            users[] // employees of this store
-  staffAttendances StaffAttendance[]
-  StaffSalary      StaffSalary[]
-  staffDetails     Staff[]
+  categories        category[]
+  brandNames        brandName[]
+  attributes        attribute[]
+  Product           product[]
+  productAttributes productAttribute[]
+  productVariants   productVariant[]
+  orders            order[]
+  orderItems        orderItem[]
+  payments          payment[]
+  staff             users[] // employees of this store
+  staffAttendances  staffAttendance[]
+  staffSalary       staffSalary[]
+  staffDetails      staff[]
 }
 
 // ========== PRODUCT MANAGEMENT ==========
-model Category {
+model category {
   id           Int         @id @default(autoincrement())
-  name         String      @unique
+  name         String
   description  String?
   parentId     Int?
+  storeId      Int
   status       Status      @default(Published)
   displayOrder Int?        @default(0)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  parent       Category?   @relation("CategoryToParent", fields: [parentId], references: [id])
-  children     Category[]  @relation("CategoryToParent")
-  products     Product[]
-  brandNames   BrandName[]
+  parent       category?   @relation("CategoryToParent", fields: [parentId], references: [id])
+  children     category[]  @relation("CategoryToParent")
+  products     product[]
+  brandNames   brandName[]
+  store        store?      @relation(fields: [storeId], references: [id])
+
+  @@unique([name, storeId])
+  @@index([storeId])
 }
 
-model Product {
+model product {
   id                Int      @id @default(autoincrement())
   name              String
   brandNameId       Int?
@@ -166,7 +177,7 @@ model Product {
   lowStockThreshold Int?     @default(5)
   categoryId        Int
   images            String[]
-  storeId           Int?
+  storeId           Int
   status            Status   @default(Published)
   displayOrder      Int?     @default(0)
   createdAt         DateTime @default(now())
@@ -174,61 +185,76 @@ model Product {
   createdById       Int
   updatedById       Int?
 
-  brandName  BrandName?         @relation(fields: [brandNameId], references: [id])
-  store      Store?             @relation(fields: [storeId], references: [id])
+  brandName  brandName?         @relation(fields: [brandNameId], references: [id])
+  store      store?             @relation(fields: [storeId], references: [id])
   createdBy  users              @relation("CreatedBy", fields: [createdById], references: [id])
   updatedBy  users?             @relation("UpdatedBy", fields: [updatedById], references: [id])
-  orderItems OrderItem[]
-  category   Category           @relation(fields: [categoryId], references: [id])
-  variants   ProductVariant[]
-  attributes ProductAttribute[]
+  orderItems orderItem[]
+  category   category           @relation(fields: [categoryId], references: [id])
+  variants   productVariant[]
+  attributes productAttribute[]
 }
 
-model BrandName {
+model brandName {
   id             Int              @id @default(autoincrement())
   brandName      String
+  storeId        Int
   status         Status           @default(Published)
   displayOrder   Int?             @default(0)
-  Product        Product[]
-  categories     Category[]
-  ProductVariant ProductVariant[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  product        product[]
+  categories     category[]
+  productVariant productVariant[]
+  store          store?           @relation(fields: [storeId], references: [id])
 
+  @@unique([brandName, storeId])
   @@index([id])
+  @@index([storeId])
 }
 
-model Attribute {
+model attribute {
   id                Int                @id @default(autoincrement())
-  name              String             @unique
+  name              String
   unit              String?
+  storeId           Int
   status            Status             @default(Published)
   displayOrder      Int?               @default(0)
-  productAttributes ProductAttribute[]
+  productAttributes productAttribute[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-  ProductVariant    ProductVariant[]
+  productVariants   productVariant[]
+  store             store?             @relation(fields: [storeId], references: [id])
 
+  @@unique([name, storeId])
   @@index([id])
+  @@index([storeId])
 }
 
-model ProductAttribute {
-  id             Int              @id @default(autoincrement())
-  productId      Int
-  product        Product          @relation(fields: [productId], references: [id])
-  attributeId    Int
-  attribute      Attribute        @relation(fields: [attributeId], references: [id])
-  value          String
-  status         Status           @default(Published)
-  displayOrder   Int?             @default(0)
-  ProductVariant ProductVariant[]
+model productAttribute {
+  id              Int              @id @default(autoincrement())
+  productId       Int
+  product         product          @relation(fields: [productId], references: [id])
+  attributeId     Int
+  attribute       attribute        @relation(fields: [attributeId], references: [id])
+  value           String
+  storeId         Int
+  status          Status           @default(Published)
+  displayOrder    Int?             @default(0)
+  productVariants productVariant[]
+  store           store?           @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
 }
 
-model ProductVariant {
+model productVariant {
   id                 Int               @id @default(autoincrement())
   name               String
   slug               String?           @unique
   productId          Int
   brandNameId        Int?
   productAttributeId Int?
+  storeId            Int
   cost               Int               @default(0) // keeping as string to accommodate various formats (e.g., "10.99", "10 USD")
   Price              Int               @default(0) // keeping as string to accommodate various formats (e.g., "10.99", "10 USD")
   stock              Int               @default(0)
@@ -246,15 +272,18 @@ model ProductVariant {
   voltage            String?
   color              String?
   extraSku           String?           @unique
-  product            Product           @relation(fields: [productId], references: [id])
-  brandName          BrandName?        @relation(fields: [brandNameId], references: [id])
-  productAttribute   ProductAttribute? @relation(fields: [productAttributeId], references: [id])
-  orderItems         OrderItem[]
-  Attribute          Attribute?        @relation(fields: [attributeId], references: [id])
+  product            product           @relation(fields: [productId], references: [id])
+  brandName          brandName?        @relation(fields: [brandNameId], references: [id])
+  productAttribute   productAttribute? @relation(fields: [productAttributeId], references: [id])
+  orderItems         orderItem[]
+  attribute          attribute?        @relation(fields: [attributeId], references: [id])
   attributeId        Int?
+  store              store?            @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
 }
 
-model Staff {
+model staff {
   id         Int      @id @default(autoincrement())
   userId     Int      @unique
   storeId    Int
@@ -267,7 +296,7 @@ model Staff {
   updatedAt  DateTime @updatedAt
 
   user  users @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store Store @relation(fields: [storeId], references: [id])
+  store store @relation(fields: [storeId], references: [id])
 
   @@index([userId])
   @@index([storeId])
@@ -275,7 +304,7 @@ model Staff {
 }
 
 // ========== STAFF ATTENDANCE ==========
-model StaffAttendance {
+model staffAttendance {
   id            Int              @id @default(autoincrement())
   staffId       Int
   date          DateTime         @map("date") // attendance date (date only, time truncated)
@@ -290,8 +319,8 @@ model StaffAttendance {
 
   staff    users  @relation("staff_member", fields: [staffId], references: [id], onDelete: Cascade)
   recorder users? @relation("staff_attendance_recorder", fields: [recordedBy], references: [id])
-  Store    Store? @relation(fields: [storeId], references: [id])
-  storeId  Int?
+  store    store  @relation(fields: [storeId], references: [id])
+  storeId  Int
 
   @@unique([staffId, date])
   @@index([staffId])
@@ -299,7 +328,7 @@ model StaffAttendance {
 }
 
 // ========== ORDER & PAYMENT (Product Sales) ==========
-model Order {
+model order {
   id           Int         @id @default(autoincrement())
   orderNumber  String      @unique
   customerId   Int // user who placed order
@@ -314,35 +343,38 @@ model Order {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   customer     users       @relation(fields: [customerId], references: [id])
-  items        OrderItem[]
-  payments     Payment[]
-  Store        Store?      @relation(fields: [storeId], references: [id])
-  storeId      Int?
+  items        orderItem[]
+  payments     payment[]
+  store        store       @relation(fields: [storeId], references: [id])
+  storeId      Int
 
   @@index([customerId])
   @@index([orderNumber])
   @@index([status])
 }
 
-model OrderItem {
+model orderItem {
   id         Int      @id @default(autoincrement())
   orderId    Int
   productId  Int
   variantId  Int? // optional, if a specific variant was chosen
+  storeId    Int
   quantity   Int
   unitPrice  Float // price at time of purchase
   totalPrice Float
   createdAt  DateTime @default(now())
 
-  order   Order           @relation(fields: [orderId], references: [id])
-  product Product         @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  order   order           @relation(fields: [orderId], references: [id])
+  product product         @relation(fields: [productId], references: [id])
+  variant productVariant? @relation(fields: [variantId], references: [id])
+  store   store           @relation(fields: [storeId], references: [id])
 
   @@index([orderId])
   @@index([productId])
+  @@index([storeId])
 }
 
-model Payment {
+model payment {
   id            Int           @id @default(autoincrement())
   orderId       Int
   amount        Float
@@ -351,18 +383,21 @@ model Payment {
   transactionId String?       @unique
   paymentDate   DateTime      @default(now())
   remarks       String?
+  storeId       Int
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id])
+  order order @relation(fields: [orderId], references: [id])
+  store store @relation(fields: [storeId], references: [id])
 
   @@index([orderId])
   @@index([transactionId])
   @@index([paymentDate])
+  @@index([storeId])
 }
 
 // ========== STAFF SALARY ==========
-model StaffSalary {
+model staffSalary {
   id               Int           @id @default(autoincrement())
   staffId          Int
   month            Int // 1-12
@@ -379,8 +414,8 @@ model StaffSalary {
   processedBy      Int? // admin/staff who processed salary
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  storeId          Int?
-  store            Store?        @relation(fields: [storeId], references: [id])
+  storeId          Int
+  store            store         @relation(fields: [storeId], references: [id])
   staff            users         @relation("salary_staff", fields: [staffId], references: [id])
   processor        users?        @relation("salary_processor", fields: [processedBy], references: [id])
 
