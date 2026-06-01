@@ -11,17 +11,4 @@ export interface AttributeDto {
   updatedAt: Date | null;
 }
 
-export interface CreateAttributeDto {
-  name: string;
-  unit?: string | null;
-  storeCode: string
-  status?: Status;
-  displayOrder?: number | null;
-}
-
-export interface UpdateAttributeDto {
-  name?: string;
-  unit?: string | null;
-  status?: Status;
-  displayOrder?: number | null;
-}
+ 

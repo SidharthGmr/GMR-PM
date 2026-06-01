@@ -237,15 +237,15 @@ model attribute {
 model productAttribute {
   id              Int              @id @default(autoincrement())
   productId       Int
-  product         product          @relation(fields: [productId], references: [id])
   attributeId     Int
-  attribute       attribute        @relation(fields: [attributeId], references: [id])
   value           String
   storeCode       String
   status          Status           @default(Published)
   displayOrder    Int?             @default(0)
   productVariants productVariant[]
   store           store?           @relation(fields: [storeCode], references: [code])
+  attribute       attribute        @relation(fields: [attributeId], references: [id])
+  product         product          @relation(fields: [productId], references: [id])
 
   @@index([storeCode])
 }

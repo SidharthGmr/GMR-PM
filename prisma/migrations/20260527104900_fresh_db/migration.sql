@@ -30,6 +30,7 @@ CREATE TABLE "users" (
     "password" TEXT NOT NULL,
     "role" "Role" NOT NULL DEFAULT 'USER',
     "isActive" BOOLEAN NOT NULL DEFAULT false,
+    "isRegisterbyShop" BOOLEAN NOT NULL DEFAULT false,
     "isEmailVerified" BOOLEAN NOT NULL DEFAULT false,
     "emailVerificationToken" TEXT,
     "emailVerificationExpires" TIMESTAMP(3),
@@ -45,7 +46,7 @@ CREATE TABLE "users" (
     "tokenUpdated" BOOLEAN NOT NULL DEFAULT false,
     "refreshToken" TEXT,
     "metadata" JSONB,
-    "storeId" INTEGER,
+    "storeCode" TEXT,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -54,6 +55,8 @@ CREATE TABLE "users" (
 CREATE TABLE "userProfile" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
+    "phone" TEXT,
+    "email" TEXT NOT NULL,
     "dateOfBirth" TIMESTAMP(3),
     "address" TEXT,
     "city" TEXT,
@@ -88,7 +91,7 @@ CREATE TABLE "category" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "parentId" INTEGER,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "status" "Status" NOT NULL DEFAULT 'Published',
     "displayOrder" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -111,13 +114,13 @@ CREATE TABLE "product" (
     "lowStockThreshold" INTEGER DEFAULT 5,
     "categoryId" INTEGER NOT NULL,
     "images" TEXT[],
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "status" "Status" NOT NULL DEFAULT 'Published',
     "displayOrder" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "createdById" INTEGER NOT NULL,
-    "updatedById" INTEGER,
+    "createdById" TEXT NOT NULL,
+    "updatedById" TEXT,
 
     CONSTRAINT "product_pkey" PRIMARY KEY ("id")
 );
@@ -126,7 +129,7 @@ CREATE TABLE "product" (
 CREATE TABLE "brandName" (
     "id" SERIAL NOT NULL,
     "brandName" TEXT NOT NULL,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "status" "Status" NOT NULL DEFAULT 'Published',
     "displayOrder" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -140,7 +143,7 @@ CREATE TABLE "attribute" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "unit" TEXT,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "status" "Status" NOT NULL DEFAULT 'Published',
     "displayOrder" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -155,7 +158,7 @@ CREATE TABLE "productAttribute" (
     "productId" INTEGER NOT NULL,
     "attributeId" INTEGER NOT NULL,
     "value" TEXT NOT NULL,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "status" "Status" NOT NULL DEFAULT 'Published',
     "displayOrder" INTEGER DEFAULT 0,
 
@@ -170,7 +173,7 @@ CREATE TABLE "productVariant" (
     "productId" INTEGER NOT NULL,
     "brandNameId" INTEGER,
     "productAttributeId" INTEGER,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "cost" INTEGER NOT NULL DEFAULT 0,
     "Price" INTEGER NOT NULL DEFAULT 0,
     "stock" INTEGER NOT NULL DEFAULT 0,
@@ -197,7 +200,7 @@ CREATE TABLE "productVariant" (
 CREATE TABLE "staff" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "position" TEXT,
     "department" TEXT,
     "hireDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -220,9 +223,9 @@ CREATE TABLE "staffAttendance" (
     "overtimeHours" DOUBLE PRECISION,
     "remarks" TEXT,
     "recordedBy" INTEGER,
+    "storeCode" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "storeId" INTEGER NOT NULL,
 
     CONSTRAINT "staffAttendance_pkey" PRIMARY KEY ("id")
 );
@@ -242,7 +245,7 @@ CREATE TABLE "order" (
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
 
     CONSTRAINT "order_pkey" PRIMARY KEY ("id")
 );
@@ -253,7 +256,7 @@ CREATE TABLE "orderItem" (
     "orderId" INTEGER NOT NULL,
     "productId" INTEGER NOT NULL,
     "variantId" INTEGER,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "quantity" INTEGER NOT NULL,
     "unitPrice" DOUBLE PRECISION NOT NULL,
     "totalPrice" DOUBLE PRECISION NOT NULL,
@@ -272,7 +275,7 @@ CREATE TABLE "payment" (
     "transactionId" TEXT,
     "paymentDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "remarks" TEXT,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -297,7 +300,7 @@ CREATE TABLE "staffSalary" (
     "processedBy" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "storeId" INTEGER NOT NULL,
+    "storeCode" TEXT NOT NULL,
 
     CONSTRAINT "staffSalary_pkey" PRIMARY KEY ("id")
 );
@@ -336,16 +339,19 @@ CREATE INDEX "users_role_idx" ON "users"("role");
 CREATE UNIQUE INDEX "userProfile_userId_key" ON "userProfile"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "userProfile_email_key" ON "userProfile"("email");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "store_name_key" ON "store"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "store_code_key" ON "store"("code");
 
 -- CreateIndex
-CREATE INDEX "category_storeId_idx" ON "category"("storeId");
+CREATE INDEX "category_storeCode_idx" ON "category"("storeCode");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "category_name_storeId_key" ON "category"("name", "storeId");
+CREATE UNIQUE INDEX "category_name_storeCode_key" ON "category"("name", "storeCode");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "product_slug_key" ON "product"("slug");
@@ -357,22 +363,22 @@ CREATE UNIQUE INDEX "product_sku_key" ON "product"("sku");
 CREATE INDEX "brandName_id_idx" ON "brandName"("id");
 
 -- CreateIndex
-CREATE INDEX "brandName_storeId_idx" ON "brandName"("storeId");
+CREATE INDEX "brandName_storeCode_idx" ON "brandName"("storeCode");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "brandName_brandName_storeId_key" ON "brandName"("brandName", "storeId");
+CREATE UNIQUE INDEX "brandName_brandName_storeCode_key" ON "brandName"("brandName", "storeCode");
 
 -- CreateIndex
 CREATE INDEX "attribute_id_idx" ON "attribute"("id");
 
 -- CreateIndex
-CREATE INDEX "attribute_storeId_idx" ON "attribute"("storeId");
+CREATE INDEX "attribute_storeCode_idx" ON "attribute"("storeCode");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "attribute_name_storeId_key" ON "attribute"("name", "storeId");
+CREATE UNIQUE INDEX "attribute_name_storeCode_key" ON "attribute"("name", "storeCode");
 
 -- CreateIndex
-CREATE INDEX "productAttribute_storeId_idx" ON "productAttribute"("storeId");
+CREATE INDEX "productAttribute_storeCode_idx" ON "productAttribute"("storeCode");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "productVariant_slug_key" ON "productVariant"("slug");
@@ -381,7 +387,7 @@ CREATE UNIQUE INDEX "productVariant_slug_key" ON "productVariant"("slug");
 CREATE UNIQUE INDEX "productVariant_extraSku_key" ON "productVariant"("extraSku");
 
 -- CreateIndex
-CREATE INDEX "productVariant_storeId_idx" ON "productVariant"("storeId");
+CREATE INDEX "productVariant_storeCode_idx" ON "productVariant"("storeCode");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "staff_userId_key" ON "staff"("userId");
@@ -390,7 +396,7 @@ CREATE UNIQUE INDEX "staff_userId_key" ON "staff"("userId");
 CREATE INDEX "staff_userId_idx" ON "staff"("userId");
 
 -- CreateIndex
-CREATE INDEX "staff_storeId_idx" ON "staff"("storeId");
+CREATE INDEX "staff_storeCode_idx" ON "staff"("storeCode");
 
 -- CreateIndex
 CREATE INDEX "staff_isActive_idx" ON "staff"("isActive");
@@ -423,7 +429,7 @@ CREATE INDEX "orderItem_orderId_idx" ON "orderItem"("orderId");
 CREATE INDEX "orderItem_productId_idx" ON "orderItem"("productId");
 
 -- CreateIndex
-CREATE INDEX "orderItem_storeId_idx" ON "orderItem"("storeId");
+CREATE INDEX "orderItem_storeCode_idx" ON "orderItem"("storeCode");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payment_transactionId_key" ON "payment"("transactionId");
@@ -438,7 +444,7 @@ CREATE INDEX "payment_transactionId_idx" ON "payment"("transactionId");
 CREATE INDEX "payment_paymentDate_idx" ON "payment"("paymentDate");
 
 -- CreateIndex
-CREATE INDEX "payment_storeId_idx" ON "payment"("storeId");
+CREATE INDEX "payment_storeCode_idx" ON "payment"("storeCode");
 
 -- CreateIndex
 CREATE INDEX "staffSalary_staffId_idx" ON "staffSalary"("staffId");
@@ -459,7 +465,7 @@ CREATE UNIQUE INDEX "_brandNameTocategory_AB_unique" ON "_brandNameTocategory"("
 CREATE INDEX "_brandNameTocategory_B_index" ON "_brandNameTocategory"("B");
 
 -- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "users" ADD CONSTRAINT "users_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "userProfile" ADD CONSTRAINT "userProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -468,37 +474,37 @@ ALTER TABLE "userProfile" ADD CONSTRAINT "userProfile_userId_fkey" FOREIGN KEY (
 ALTER TABLE "category" ADD CONSTRAINT "category_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "category" ADD CONSTRAINT "category_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "category" ADD CONSTRAINT "category_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "product" ADD CONSTRAINT "product_brandNameId_fkey" FOREIGN KEY ("brandNameId") REFERENCES "brandName"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "product" ADD CONSTRAINT "product_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "product" ADD CONSTRAINT "product_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "product" ADD CONSTRAINT "product_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "product" ADD CONSTRAINT "product_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("userId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "product" ADD CONSTRAINT "product_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "product" ADD CONSTRAINT "product_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "users"("userId") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "product" ADD CONSTRAINT "product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "brandName" ADD CONSTRAINT "brandName_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "brandName" ADD CONSTRAINT "brandName_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "attribute" ADD CONSTRAINT "attribute_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "attribute" ADD CONSTRAINT "attribute_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "productAttribute" ADD CONSTRAINT "productAttribute_productId_fkey" FOREIGN KEY ("productId") REFERENCES "product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "productAttribute" ADD CONSTRAINT "productAttribute_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "productAttribute" ADD CONSTRAINT "productAttribute_attributeId_fkey" FOREIGN KEY ("attributeId") REFERENCES "attribute"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "productAttribute" ADD CONSTRAINT "productAttribute_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "productAttribute" ADD CONSTRAINT "productAttribute_productId_fkey" FOREIGN KEY ("productId") REFERENCES "product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "productVariant" ADD CONSTRAINT "productVariant_productId_fkey" FOREIGN KEY ("productId") REFERENCES "product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -513,13 +519,13 @@ ALTER TABLE "productVariant" ADD CONSTRAINT "productVariant_productAttributeId_f
 ALTER TABLE "productVariant" ADD CONSTRAINT "productVariant_attributeId_fkey" FOREIGN KEY ("attributeId") REFERENCES "attribute"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "productVariant" ADD CONSTRAINT "productVariant_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "productVariant" ADD CONSTRAINT "productVariant_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "staff" ADD CONSTRAINT "staff_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "staff" ADD CONSTRAINT "staff_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "staff" ADD CONSTRAINT "staff_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "staffAttendance" ADD CONSTRAINT "staffAttendance_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -528,13 +534,13 @@ ALTER TABLE "staffAttendance" ADD CONSTRAINT "staffAttendance_staffId_fkey" FORE
 ALTER TABLE "staffAttendance" ADD CONSTRAINT "staffAttendance_recordedBy_fkey" FOREIGN KEY ("recordedBy") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "staffAttendance" ADD CONSTRAINT "staffAttendance_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "staffAttendance" ADD CONSTRAINT "staffAttendance_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order" ADD CONSTRAINT "order_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order" ADD CONSTRAINT "order_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "order" ADD CONSTRAINT "order_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "orderItem" ADD CONSTRAINT "orderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -546,16 +552,16 @@ ALTER TABLE "orderItem" ADD CONSTRAINT "orderItem_productId_fkey" FOREIGN KEY ("
 ALTER TABLE "orderItem" ADD CONSTRAINT "orderItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "productVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "orderItem" ADD CONSTRAINT "orderItem_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "orderItem" ADD CONSTRAINT "orderItem_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "payment" ADD CONSTRAINT "payment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payment" ADD CONSTRAINT "payment_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "payment" ADD CONSTRAINT "payment_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "staffSalary" ADD CONSTRAINT "staffSalary_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "staffSalary" ADD CONSTRAINT "staffSalary_storeCode_fkey" FOREIGN KEY ("storeCode") REFERENCES "store"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "staffSalary" ADD CONSTRAINT "staffSalary_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

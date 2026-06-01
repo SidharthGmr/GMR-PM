@@ -12,7 +12,6 @@ import { createUserName, generateStoreCode, generateUserGUID } from "../utils/au
 import { generateOtp } from "../utils/otp.util";
 import { ResetPasswordModel } from "../models/forgot-password.model";
 import { LoginModel } from "../models/login.model";
-
 import bcrypt from "bcryptjs";
 import { Status } from "../enum/status.enum";
 
