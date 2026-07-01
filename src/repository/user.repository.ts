@@ -1,11 +1,26 @@
-import { Status } from "@prisma/client";
+import { Status, Role } from "@prisma/client";
 import prisma from "../config/prisma";
 import { UpdateUserDto, UserDto } from "../dtos/user.dto";
 import { IUserRepository } from "./interfaces/iuser.repository";
 
 export class UserRepository implements IUserRepository {
-  async findAll(): Promise<UserDto[]> {
-    return prisma.users.findMany({ where: { NOT: { status: Status.Trash } } });
+  async findAll(storeCode?: string, storeId?: number, role?: Role | string): Promise<UserDto[]> {
+    const where: any = { NOT: { status: Status.Trash } };
+    if (storeCode) {
+      where.storeCode = storeCode;
+    }
+    if (storeId !== undefined) {
+      where.store = { id: storeId };
+    }
+    if (role) {
+      where.role = role;
+    }
+    return prisma.users.findMany({
+      where,
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
   }
 
   async findById(userId: string): Promise<UserDto | null> {
@@ -44,6 +59,13 @@ export class UserRepository implements IUserRepository {
     return prisma.users.update({
       where: { userId },
       data: { status: Status.Trash },
+    });
+  }
+
+  async updateRole(userId: string, role: Role): Promise<UserDto> {
+    return prisma.users.update({
+      where: { userId },
+      data: { role },
     });
   }
 }

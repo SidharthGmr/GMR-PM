@@ -20,7 +20,7 @@ app.use(cors()); // <--- Add this line BEFORE your routes
 /*
 app.use(cors({
   origin: "*", // Allow all origins (good for development)
-  // origin: ["https://project-management-ganga-ui.vercel.app","http://192.168.1.67:3000", "http://localhost:3000","http://localhost:5000"], // Allow specific IPs
+  // origin: ["https://ganga-pms.vercel.app","http://192.168.1.67:3000", "http://localhost:3000","http://localhost:5000"], // Allow specific IPs
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -79,7 +79,7 @@ app.get('/docs', (_req, res) => {
 // Redirect any /docs/* paths back to /docs to avoid relative asset resolution
 // Redirect any /docs/... requests back to /docs using a RegExp route
 app.get(/^\/docs\/.*$/, (_req, res) => {
-  res.redirect('/');
+  res.redirect('/docs');
 });
 
 // Redirect legacy swagger asset requests to the CDN equivalents so older

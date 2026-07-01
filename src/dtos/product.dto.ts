@@ -4,14 +4,15 @@ export interface ProductResponseDto {
   id: number;
   name: string;
   brandNameId?: number | null;
+  parentId?: number | null;
+  attributeId?: number | null;
+  categoryId: number;
   slug: string;
   description?: string | null;
-  sku: string;
   price: number;
   cost?: number | null;
   stock: number;
   lowStockThreshold?: number | null;
-  categoryId: number;
   images: string[];
   storeCode: string
   status: Status;
@@ -25,9 +26,10 @@ export interface ProductResponseDto {
 export interface CreateProductDto {
   name: string;
   brandNameId?: number | null;
+  parentId?: number | null;
+  attributeId?: number | null;
   slug: string;
   description?: string | null;
-  sku: string;
   price: number;
   cost?: number | null;
   stock?: number;
@@ -37,8 +39,8 @@ export interface CreateProductDto {
   storeCode: string
   status?: Status;
   displayOrder?: number | null;
-  createdById: number;
+  createdById: string;
   updatedAt?: Date;
-  updatedById?: number | null;
+  updatedById?: string | null;
 }
 

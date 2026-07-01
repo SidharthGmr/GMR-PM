@@ -1,25 +1,52 @@
+import bcrypt from 'bcryptjs';
+import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import config from '../config';
 import { container } from '../config/ioc.config';
 import { TYPES } from '../config/ioc.types';
-import { LoginModel } from '../models/login.model';
-import IUnitOfService from '../services/interfaces/iunitof.service';
-import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import CustomResponse from '../dtos/custom-response';
+import { refreshTokenResponseDto } from '../dtos/loginResponse.dto';
 import { UserDto } from '../dtos/user.dto';
-import { CreateUserModel } from '../models/user.model';
-import CustomError from '../exceptions/custom-error';
 import { Role } from '../enum/user.enum';
-import { LoginResponseDto, refreshTokenResponseDto } from '../dtos/loginResponse.dto';
-import config from '../config';
-import { nowISO } from '../utils/authHelpers.service';
-import { isExpired } from '../utils/timeExpiry.util';
+import CustomError from '../exceptions/custom-error';
 import { ResetPasswordModel, verifyEmailModel } from '../models/forgot-password.model';
+import { LoginModel } from '../models/login.model';
+import { CreateUserModel } from '../models/user.model';
+import IUnitOfService from '../services/interfaces/iunitof.service';
+import { isExpired } from '../utils/timeExpiry.util';
 
 export class AccountController {
   constructor(private unitOfService = container.get<IUnitOfService>(TYPES.IUnitOfService)) {
     this.unitOfService = unitOfService;
   }
+
+  signup = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const data = req.body as CreateUserModel;
+    let response: CustomResponse<UserDto>;
+
+    const user = await this.unitOfService.User.getByEmail(data.email);
+    if (user) {
+      throw new CustomError('User already exists', 409);
+    }
+
+    const newUser = await this.unitOfService.Account.create(data, Role.ADMIN);
+
+    if (!newUser) {
+      throw new CustomError('User creation failed', 400);
+    }
+
+    // const emailUser = await this.unitOfService.User.getByEmail(
+    //   data.email,
+    //   false
+    // );
+
+    response = {
+      success: true,
+      message: 'User created successfully',
+      data: newUser,
+    };
+    return res.status(201).json(response);
+  };
 
   login = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
     const model = req.body as LoginModel;
@@ -63,10 +90,10 @@ export class AccountController {
       throw new CustomError('Login processing failed', 500);
     }
     if (!user.isEmailVerified) {
-      return res.status(200).json({
-        success: true,
-        message: 'Login successful, but please verify your email',
-        data: { token, user },
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email before login',
+        data: null,
       });
     }
 
@@ -105,41 +132,7 @@ export class AccountController {
     return res.status(200).json(response);
   };
 
-  register = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const data = req.body as CreateUserModel;
-    let response: CustomResponse<UserDto>;
-
-    const user = await this.unitOfService.User.getByEmail(data.email);
-    if (user) {
-      throw new CustomError('User already exists', 409);
-    }
-
-    const newUser = await this.unitOfService.Account.create(data as unknown as CreateUserModel, Role.User);
-
-    if (!newUser) {
-      throw new CustomError('User creation failed', 400);
-    }
-
-    // const emailUser = await this.unitOfService.User.getByEmail(
-    //   data.email,
-    //   false
-    // );
-
-    response = {
-      success: true,
-      message: 'User created successfully',
-      data: newUser,
-    };
-    return res.status(201).json(response);
-  };
-
   refreshToken = async (req: Request, res: Response): Promise<Response<CustomResponse<refreshTokenResponseDto>>> => {
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      throw new CustomError('userId is required', 400);
-    }
-
     const { token: oldToken } = req.body as { token: string };
 
     if (!oldToken) {
@@ -151,6 +144,12 @@ export class AccountController {
       audience: config.jwt.audience || undefined,
       issuer: config.jwt.issuer || undefined,
     });
+
+    const userId = (decoded as any).userId;
+
+    if (!userId) {
+      throw new CustomError('Invalid refresh token', 400);
+    }
 
     const user = await this.unitOfService.User.getUserById(userId);
     if (!user) {
@@ -165,11 +164,13 @@ export class AccountController {
 
     const token = jwt.sign(
       {
+        id: (decoded as any).id,
         userId: (decoded as any).userId,
         name: (decoded as any).name,
         email: (decoded as any).email,
         role: (decoded as any).role?.toString(),
         profileImageUrl: (decoded as any).profileImageUrl,
+        storeCode: (decoded as any).storeCode || null,
         tokenUpdated: 'Yes',
       },
       config.jwt.secret,
@@ -203,8 +204,9 @@ export class AccountController {
     const userId = req.user?.userId;
 
     if (!userId) {
-      throw new CustomError('Email is required', 400);
+      throw new CustomError('Unauthorized', 401);
     }
+
     const user = await this.unitOfService.Account.forgotPassword(userId);
     if (!user) {
       throw new CustomError('User not found', 404);
@@ -212,131 +214,141 @@ export class AccountController {
 
     const response: CustomResponse<UserDto> = {
       success: true,
-      message: 'User fetched successfully',
+      message: 'OTP sent successfully',
       data: user,
     };
     return res.status(200).json(response);
   };
 
   otpVerify = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const data = req.body as verifyEmailModel;
-    if (!data.email) {
-      throw new CustomError('Email is required', 400);
+    const userId = req.user?.userId;
+    const { otp } = req.body as { otp: string };
+
+    if (!userId) {
+      throw new CustomError('User ID is required', 401);
     }
 
-    const user = await this.unitOfService.User.getByEmail(data.email);
+    if (!otp) {
+      throw new CustomError('OTP is required', 400);
+    }
+
+    const user = await this.unitOfService.User.getUserById(userId);
+
     if (!user) {
-      throw new CustomError('User not found', 400);
+      throw new CustomError('User not found', 404);
     }
-
-    let response: CustomResponse<UserDto>;
-
-    // if (!data.email) {
-    //   response = { success: false, message: "Unauthorized" };
-    //   return res.status(401).json(response);
-    // }
 
     if (user.isEmailVerified) {
-      response = {
+      return res.status(200).json({
         success: false,
         message: 'User already verified',
-      };
-      return res.status(200).json(response);
+      });
     }
 
-    // ✅ token exists?
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
-      response = {
+      return res.status(400).json({
         success: false,
         message: 'OTP not generated or already used. Please resend OTP',
-      };
-
-      return res.status(200).json(response);
+      });
     }
-
-    // ✅ expiry check (1 minute expiry supported)
-    const now = new Date();
-    const expiresAt = user.emailVerificationExpires;
-
-    const expired = isExpired(expiresAt, 1);
 
     if (isExpired(user.emailVerificationExpires, 1)) {
-      response = {
+      return res.status(400).json({
         success: false,
-        message: `${data.otp},"OTP expired. Please resend OTP"`,
-      };
-
-      return res.status(200).json(response);
+        message: 'OTP expired. Please resend OTP',
+      });
     }
 
-    if (user.emailVerificationToken !== data.otp) {
-      response = {
+    if (user.emailVerificationToken !== otp) {
+      return res.status(400).json({
         success: false,
         message: 'Invalid OTP',
-      };
-
-      return res.status(400).json(response);
+      });
     }
 
-    const newUser = await this.unitOfService.Account.updateEmailStatus(data.email);
-    if (!newUser) {
+    const updatedUser = await this.unitOfService.Account.updateEmailStatus(user.email);
+
+    if (!updatedUser) {
       throw new CustomError('Failed to verify email', 500);
     }
 
-    // const updatedUser = await this.unitOfService.User.getUserById(userId);
-    // if (!updatedUser) {
-    //   throw new CustomError("User not found", 200);
-    // }
-    response = {
+    return res.status(200).json({
       success: true,
       message: 'OTP verified successfully',
-      data: newUser,
-    };
-    return res.status(200).json(response);
+      data: updatedUser,
+    });
   };
 
-  resetPassword = async (req: Request, res: Response) => {
-    const userId = req.user?.userId;
-    const data = req.body as ResetPasswordModel;
-    if (!userId) {
-      throw new CustomError('User ID is required', 400);
-    }
-    const user = await this.unitOfService.User.getUserById(userId);
-    if (!user) {
-      throw new CustomError('User Not Found', 404);
-    }
-    const users = await this.unitOfService.Account.resetPassword(userId, data);
-    if (!users) {
-      throw new CustomError('Password reset failed', 500);
-    }
-    const response: CustomResponse<UserDto> = {
-      success: true,
-      message: 'User fetched successfully',
-      data: users,
-    };
-    return res.status(200).json(response);
-  };
-
-  forgotPassword = async (req: Request, res: Response) => {
+  forgotPassword = async (req: Request, res: Response): Promise<Response<CustomResponse<null>>> => {
     const { email } = req.body;
+
     if (!email) {
       throw new CustomError('Email is required', 400);
     }
 
     const existingUser = await this.unitOfService.User.getByEmail(email);
-    if (!existingUser) {
-      throw new CustomError('User not found', 404);
+
+    if (existingUser) {
+      await this.unitOfService.Account.forgotPassword(existingUser.userId);
     }
 
-    const user = await this.unitOfService.Account.forgotPassword(existingUser.userId);
+    return res.status(200).json({
+      success: true,
+      message: 'If the email exists, an OTP has been sent.',
+      data: null,
+    });
+  };
+
+  resetPassword = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const data = req.body as ResetPasswordModel;
+
+    if (!data.email) {
+      throw new CustomError('Email is required', 400);
+    }
+
+    if (!data.otp) {
+      throw new CustomError('OTP is required', 400);
+    }
+
+    if (!data.newPassword || !data.confirmPassword) {
+      throw new CustomError('New password and confirm password are required', 400);
+    }
+
+    if (data.newPassword !== data.confirmPassword) {
+      throw new CustomError('Password and confirm password do not match', 400);
+    }
+
+    const user = await this.unitOfService.User.getByEmail(data.email);
+
     if (!user) {
       throw new CustomError('User not found', 404);
     }
+
+    if (!user.emailVerificationToken || !user.emailVerificationExpires) {
+      throw new CustomError('OTP not generated or already used. Please resend OTP', 400);
+    }
+
+    if (isExpired(user.emailVerificationExpires, 1)) {
+      throw new CustomError('OTP expired. Please resend OTP', 400);
+    }
+
+    if (user.emailVerificationToken !== data.otp) {
+      throw new CustomError('Invalid OTP', 400);
+    }
+
+    const updatedUser = await this.unitOfService.Account.resetPassword(user.userId, data);
+
+    if (!updatedUser) {
+      throw new CustomError('Password reset failed', 500);
+    }
+
     const response: CustomResponse<UserDto> = {
       success: true,
-      message: 'User fetched successfully',
-      data: user,
+      message: 'Password reset successfully',
+      data: updatedUser,
     };
+
     return res.status(200).json(response);
   };
+
 }

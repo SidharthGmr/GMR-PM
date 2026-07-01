@@ -1,9 +1,10 @@
 import { OrderStatus } from "@prisma/client";
+import { OrderItemDto } from "./order-item.dto";
 
 export interface OrderDto {
   id: number;
   orderNumber: string;
-  customerId: number;
+  customerId: string;
   storeCode: string
   orderDate: Date;
   totalAmount: number;
@@ -13,22 +14,11 @@ export interface OrderDto {
   grandTotal: number;
   status: OrderStatus;
   notes?: string | null;
+  createdById?: string | null;
+  createdByName?: string | null;
   createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateOrderDto {
-  orderNumber: string;
-  customerId: number;
-  storeCode: string
-  orderDate?: Date;
-  totalAmount?: number;
-  discount?: number;
-  tax?: number;
-  shippingCost?: number;
-  grandTotal?: number;
-  status?: OrderStatus;
-  notes?: string | null;
+  updatedAt: Date | null;
+  items?: OrderItemDto[];
 }
 
 export interface UpdateOrderDto {

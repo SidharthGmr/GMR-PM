@@ -4,9 +4,7 @@ const OrderStatusEnum = z.enum(["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", 
 
 export const createOrderSchema = z.object({
   body: z.object({
-    orderNumber: z.string().min(1, "Order number is required"),
-    customerId: z.number().int().positive("Customer ID is required"),
-    orderDate: z.string().optional(),
+    customerId: z.string().min(1, "Customer ID is required"),
     totalAmount: z.number().nonnegative().optional(),
     discount: z.number().nonnegative().optional(),
     tax: z.number().nonnegative().optional(),
@@ -14,6 +12,12 @@ export const createOrderSchema = z.object({
     grandTotal: z.number().nonnegative().optional(),
     status: OrderStatusEnum.optional(),
     notes: z.string().optional(),
+    items: z.array(z.object({
+      productId: z.number().int().positive(),
+      quantity: z.number().int().positive(),
+      unitPrice: z.number().nonnegative(),
+      totalPrice: z.number().nonnegative(),
+    })).optional(),
   }),
 });
 

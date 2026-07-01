@@ -113,16 +113,12 @@ orderRouter.get("/:id", authenticateToken, asyncHandler(orderController.getById)
  *         application/json:
  *           schema:
  *             type: object
- *             required: [orderNumber, customerId, storeId]
+ *             required: [customerId]
  *             properties:
- *               orderNumber:
- *                 type: string
  *               customerId:
- *                 type: integer
- *               storeId:
- *                 type: integer
- *                 example: 1
- *                 description: ID of the store this order belongs to
+ *                 type: string
+ *                 example: "uuid-or-id"
+ *                 description: ID of the customer who placed this order
  *               totalAmount:
  *                 type: number
  *               discount:
@@ -138,6 +134,21 @@ orderRouter.get("/:id", authenticateToken, asyncHandler(orderController.getById)
  *                 enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, RETURNED]
  *               notes:
  *                 type: string
+ *               items:
+ *                 type: array
+ *                 description: List of items in the order
+ *                 items:
+ *                   type: object
+ *                   required: [productId, quantity]
+ *                   properties:
+ *                     productId:
+ *                       type: integer
+ *                     quantity:
+ *                       type: integer
+ *                     unitPrice:
+ *                       type: number
+ *                     totalPrice:
+ *                       type: number
  *     responses:
  *       201:
  *         description: Order created successfully
@@ -171,6 +182,8 @@ orderRouter.post("/", authenticateToken, validate(createOrderSchema), asyncHandl
  *           schema:
  *             type: object
  *             properties:
+ *               customerId:
+ *                 type: string
  *               totalAmount:
  *                 type: number
  *               discount:

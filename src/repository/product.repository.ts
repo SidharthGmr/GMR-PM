@@ -6,13 +6,9 @@ import { ProductFilterParams } from '../params/product.params';
 import { IProductRepository } from './interfaces/iproduct.repository';
 
 const productInclude = {
-  brandName: true,
-  category: true,
-  variants: { where: { status: { not: Status.Trash } } },
-  attributes: {
-    include: { attribute: true },
-    where: { status: { not: Status.Trash } },
-  },
+  brandName: { select: { id: true, name: true } },   // ✅ No 'where'
+  category: { select: { id: true, name: true } },   // ✅
+  attribute: { select: { id: true, name: true } },  // ✅
 } satisfies Prisma.productInclude;
 
 export class ProductRepository implements IProductRepository {
@@ -32,13 +28,15 @@ export class ProductRepository implements IProductRepository {
       if (filters.search) {
         where.OR = [
           { name: { contains: filters.search, mode: 'insensitive' } },
-          { sku: { contains: filters.search, mode: 'insensitive' } },
+
         ];
       }
 
       if (filters.categoryId !== undefined) where.categoryId = filters.categoryId;
       if (filters.brandNameId !== undefined) where.brandNameId = filters.brandNameId;
       if (filters.storeCode !== undefined) where.storeCode = filters.storeCode;
+      if (filters.storeId !== undefined) where.store = { id: filters.storeId };
+      if (filters.createdById !== undefined) where.createdById = filters.createdById;
 
       if (filters.status !== undefined) {
         where.status = filters.status;
@@ -80,10 +78,75 @@ export class ProductRepository implements IProductRepository {
     return prisma.product.findUnique({ where: { slug }, include: productInclude });
   }
 
-  async findBySku(sku: string): Promise<ProductResponseDto | null> {
-    return prisma.product.findUnique({ where: { sku }, include: productInclude });
+
+  async getLowStockProducts(storeCode: string, page = 1, limit = 10): Promise<ListResponseDto<ProductResponseDto>> {
+    const skip = (page - 1) * limit;
+
+    const idsResult = await prisma.$queryRaw<{ id: number }[]>`
+      SELECT "id" FROM "product" 
+      WHERE "stock" <= "lowStockThreshold" 
+        AND "storeCode" = ${storeCode} 
+        AND "status" != 'Trash'
+      ORDER BY "stock" ASC
+      LIMIT ${limit} OFFSET ${skip}
+    `;
+    
+    const countResult = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*) as count FROM "product" 
+      WHERE "stock" <= "lowStockThreshold" 
+        AND "storeCode" = ${storeCode} 
+        AND "status" != 'Trash'
+    `;
+
+    const total = Number(countResult[0]?.count || 0);
+    const ids = idsResult.map(r => r.id);
+
+    const data = await prisma.product.findMany({
+      where: { id: { in: ids } },
+      include: productInclude,
+      orderBy: { stock: 'asc' }
+    });
+
+    return { totalRecord: total, data };
   }
 
+  async addStock(id: number, quantity: number, userIdStr: string, storeCode: string, reason?: string): Promise<ProductResponseDto> {
+    const user = await prisma.users.findUnique({ where: { userId: userIdStr } });
+    if (!user) throw new Error("User not found");
+
+    return prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id },
+        data: { stock: { increment: quantity } },
+        include: productInclude
+      });
+      await tx.stockHistory.create({
+        data: {
+          productId: id,
+          storeCode,
+          userId: user.id,
+          quantity,
+          reason: reason || null
+        }
+      });
+      return product;
+    });
+  }
+
+  async getStockHistory(productId: number, storeCode: string, page = 1, limit = 10): Promise<any> {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      prisma.stockHistory.findMany({
+        where: { productId, storeCode },
+        include: { user: { select: { id: true, name: true, userId: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.stockHistory.count({ where: { productId, storeCode } }),
+    ]);
+    return { totalRecord: total, data };
+  }
 
   async delete(id: number): Promise<ProductResponseDto> {
     return prisma.product.update({ where: { id }, data: { status: Status.Trash } });

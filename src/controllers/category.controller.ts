@@ -1,13 +1,13 @@
+import { Status } from '@prisma/client';
 import { Request, Response } from 'express';
 import { container } from '../config/ioc.config';
 import { TYPES } from '../config/ioc.types';
-import IUnitOfService from '../services/interfaces/iunitof.service';
+import { CategoryDto } from '../dtos/category.dto';
 import CustomResponse from '../dtos/custom-response';
-import { CategoryDto, CreateCategoryDto, UpdateCategoryDto } from '../dtos/category.dto';
 import { ListResponseDto } from '../dtos/list-response.dto';
-import { CategoryFilterParams } from '../params/category.params';
-import { Status } from '@prisma/client';
 import { CategoryModel } from '../models/category.model';
+import { CategoryFilterParams } from '../params/category.params';
+import IUnitOfService from '../services/interfaces/iunitof.service';
 
 export class CategoryController {
   constructor(private unitOfService = container.get<IUnitOfService>(TYPES.IUnitOfService)) { }
@@ -21,6 +21,7 @@ export class CategoryController {
         parentId: req.query['parentId'] ? parseInt(req.query['parentId'] as string) : undefined,
         status: req.query['status'] ? req.query['status'] as Status : undefined,
         showAllRecords: req.query['showAllRecords'] !== undefined ? req.query['showAllRecords'] === 'true' : undefined,
+        storeCode: req.user?.storeCode || undefined,
       }).filter(([, v]) => v !== undefined)
     );
     const categories = await this.unitOfService.Category.getAll(filters);
@@ -64,6 +65,6 @@ export class CategoryController {
     const id = parseInt(req.params['id'] as string);
     if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id' });
     const category = await this.unitOfService.Category.delete(id);
-    return res.status(200).json({ success: true, message: 'Category deleted successfully', data: category });
+    return res.status(204).json({ success: true, message: 'Category deleted successfully', data: category });
   };
 }

@@ -1,11 +1,15 @@
+import { Role } from '@prisma/client';
+import prisma from '../config/prisma';
+import { Request, Response } from 'express';
 import { container } from '../config/ioc.config';
 import { TYPES } from '../config/ioc.types';
-import IUnitOfService from '../services/interfaces/iunitof.service';
-import { Request, Response } from 'express';
 import CustomResponse from '../dtos/custom-response';
+import { ListResponseDto } from '../dtos/list-response.dto';
 import { UpdateUserDto, UserDto } from '../dtos/user.dto';
 import CustomError from '../exceptions/custom-error';
-import { ListResponseDto } from '../dtos/list-response.dto';
+import { CreateUserModel } from '../models/user.model';
+import IUnitOfService from '../services/interfaces/iunitof.service';
+import { generateStoreCode } from '../utils/authHelpers.service';
 
 export class UserController {
   constructor(private unitOfService = container.get<IUnitOfService>(TYPES.IUnitOfService)) {
@@ -15,7 +19,42 @@ export class UserController {
   getAllUsers = async (req: Request, res: Response): Promise<Response<CustomResponse<ListResponseDto<UserDto>>>> => {
     let response: CustomResponse<ListResponseDto<UserDto>>;
 
-    const user = await this.unitOfService.User.getAll();
+    let storeCode = req.query.storeCode as string | undefined;
+    let storeId: number | undefined;
+    const role = req.query.role as string | undefined;
+
+    if (req.user?.role === Role.SUPER_ADMIN) {
+      storeCode = undefined;
+      storeId = undefined;
+    } else if (req.user?.role === Role.ADMIN) {
+      if (req.user.storeCode) {
+        try {
+          const store = await prisma.store.findUnique({
+            where: { code: req.user.storeCode }
+          });
+          if (store) {
+            storeId = store.id;
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      if (storeId === undefined) {
+        storeCode = req.user.storeCode || undefined;
+      } else {
+        storeCode = undefined;
+      }
+    } else {
+      const storeIdStr = req.query.storeId as string | undefined;
+      if (storeIdStr) {
+        const parsedStoreId = parseInt(storeIdStr, 10);
+        if (!isNaN(parsedStoreId)) {
+          storeId = parsedStoreId;
+        }
+      }
+    }
+
+    const user = await this.unitOfService.User.getAll(storeCode, storeId, role);
     if (!user) {
       response = { success: false, message: 'User not found' };
       return res.status(404).json(response);
@@ -88,7 +127,7 @@ export class UserController {
 
   updateUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
 
-    const userId = req.user?.userId;
+    const userId = req.params.userId as string;
     if (!userId) {
       const response: CustomResponse<UserDto> = {
         success: false,
@@ -113,7 +152,7 @@ export class UserController {
 
   updateStatusById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
 
-    const userId = req.user?.userId;
+    const userId = req.params.userId as string;
     if (!userId) {
       const response: CustomResponse<UserDto> = {
         success: false,
@@ -137,7 +176,7 @@ export class UserController {
   };
 
   deleteUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const userId = req.user?.userId;
+    const userId = req.params.userId as string;
     if (!userId) {
       const response: CustomResponse<UserDto> = {
         success: false,
@@ -153,6 +192,31 @@ export class UserController {
     const response: CustomResponse<UserDto> = {
       success: true,
       message: 'User deleted successfully',
+      data: user,
+    };
+
+    return res.status(200).json(response);
+  };
+
+  updateProfile = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      const response: CustomResponse<UserDto> = {
+        success: false,
+        message: 'userId is required',
+      };
+      return res.status(400).json(response);
+    }
+    const updatedData = req.body as UpdateUserDto;
+    const user = await this.unitOfService.User.update(userId, updatedData);
+
+    if (!user) {
+      throw new CustomError('User not found', 404);
+    }
+
+    const response: CustomResponse<UserDto> = {
+      success: true,
+      message: 'Profile updated successfully',
       data: user,
     };
 
@@ -193,4 +257,53 @@ export class UserController {
     return res.status(200).json(response);
   };
 
+  updateRole = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const paramUserId = req.params.userId;
+    const userId = Array.isArray(paramUserId) ? paramUserId[0] : paramUserId;
+    const { role } = req.body as { role: Role };
+
+    if (!userId) {
+      const response: CustomResponse<UserDto> = {
+        success: false,
+        message: 'userId is required',
+      };
+      return res.status(400).json(response);
+    }
+
+    const user = await this.unitOfService.User.updateRole(userId, role);
+    if (!user) {
+      throw new CustomError('User not found', 404);
+    }
+
+    const response: CustomResponse<UserDto> = {
+      success: true,
+      message: 'User role updated successfully',
+      data: user,
+    };
+
+    return res.status(200).json(response);
+  };
+
+  createUser = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const data = req.body as CreateUserModel & { role?: Role };
+    const storeCode = req.user?.storeCode || generateStoreCode(data.firstName || 'Store');
+
+    const user = await this.unitOfService.User.getByEmail(data.email);
+    if (user) {
+      throw new CustomError('User already exists', 409);
+    }
+
+    const newUser = await this.unitOfService.User.create(data, storeCode);
+
+    if (!newUser) {
+      throw new CustomError('User creation failed', 400);
+    }
+
+    const response: CustomResponse<UserDto> = {
+      success: true,
+      message: 'User created successfully by admin',
+      data: newUser,
+    };
+    return res.status(201).json(response);
+  };
 }
