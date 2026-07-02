@@ -73,15 +73,7 @@ export class AccountRepository implements IAccountRepository {
     });
   }
 
-  async forgotPassword(userId: string, otp: string): Promise<UserDto | null> {
-    return await prisma.users.update({
-      where: { userId: userId },
-      data: {
-        emailVerificationToken: otp,
-        emailVerificationExpires: new Date()
-      },
-    });
-  }
+
 
   async clearPasswordResetToken(email: string): Promise<UserDto | null> {
     return await prisma.users.update({

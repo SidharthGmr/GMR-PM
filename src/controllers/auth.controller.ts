@@ -9,7 +9,7 @@ import { refreshTokenResponseDto } from '../dtos/loginResponse.dto';
 import { UserDto } from '../dtos/user.dto';
 import { Role } from '../enum/user.enum';
 import CustomError from '../exceptions/custom-error';
-import { ResetPasswordModel, verifyEmailModel } from '../models/forgot-password.model';
+import { ResetPasswordModel } from '../models/forgot-password.model';
 import { LoginModel } from '../models/login.model';
 import { CreateUserModel } from '../models/user.model';
 import IUnitOfService from '../services/interfaces/iunitof.service';
@@ -19,6 +19,68 @@ export class AccountController {
   constructor(private unitOfService = container.get<IUnitOfService>(TYPES.IUnitOfService)) {
     this.unitOfService = unitOfService;
   }
+
+  login = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const model = req.body as LoginModel;
+    let response: CustomResponse<UserDto>;
+    if (!model.email || !model.password) {
+      throw new CustomError('Email and password are required', 400);
+    }
+    const loggedInUser = await this.unitOfService.User.getByEmail(model.email);
+
+    if (!loggedInUser) {
+      throw new CustomError('Invalid email or password', 401);
+    }
+
+    const isPasswordValid = await bcrypt.compare(model.password, loggedInUser.password || '');
+
+    if (!isPasswordValid) {
+      throw new CustomError('Invalid email or password', 401);
+    }
+
+    if (!loggedInUser.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email before login',
+        data: null,
+      });
+    }
+
+    const tokenPayload = {
+      id: loggedInUser.id,
+      userId: loggedInUser.userId,
+      name: loggedInUser.name,
+      email: loggedInUser.email,
+      role: loggedInUser.role,
+      storeCode: loggedInUser.storeCode || null,
+    };
+
+    const token = jwt.sign(tokenPayload, config.jwt.secret, {
+      expiresIn: config.jwt.accessExpires as any, // was hardcoded "10h"
+      algorithm: 'HS256',
+      audience: config.jwt.audience,
+      issuer: config.jwt.issuer,
+    });
+
+    const refreshToken = jwt.sign(tokenPayload, config.jwt.secret, {
+      expiresIn: config.jwt.refreshExpires as any,
+      algorithm: 'HS256',
+      audience: config.jwt.audience,
+      issuer: config.jwt.issuer,
+    });
+
+    const user = await this.unitOfService.Account.login(model, token, refreshToken);
+
+    if (!user) {
+      throw new CustomError('Login processing failed', 500);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: { token, user },
+    });
+  };
 
   signup = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
     const data = req.body as CreateUserModel;
@@ -46,62 +108,6 @@ export class AccountController {
       data: newUser,
     };
     return res.status(201).json(response);
-  };
-
-  login = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const model = req.body as LoginModel;
-    let response: CustomResponse<UserDto>;
-    if (!model.email || !model.password) {
-      throw new CustomError('Email and password are required', 400);
-    }
-    const loggedInUser = await this.unitOfService.User.getByEmail(model.email);
-    if (!loggedInUser) {
-      throw new CustomError('Invalid email or password', 401);
-    }
-    const isPasswordValid = await bcrypt.compare(model.password, loggedInUser.password || '');
-    if (!isPasswordValid) {
-      throw new CustomError('Invalid email or password', 401);
-    }
-    const tokenPayload = {
-      id: loggedInUser.id,
-      userId: loggedInUser.userId,
-      name: loggedInUser.name,
-      email: loggedInUser.email,
-      role: loggedInUser.role,
-      storeCode: loggedInUser.storeCode || null,
-    };
-
-    const token = jwt.sign(tokenPayload, config.jwt.secret, {
-      expiresIn: config.jwt.accessExpires as any, // was hardcoded "10h"
-      algorithm: 'HS256',
-      audience: config.jwt.audience,
-      issuer: config.jwt.issuer,
-    });
-
-    const refreshToken = jwt.sign(tokenPayload, config.jwt.secret, {
-      expiresIn: config.jwt.refreshExpires as any,
-      algorithm: 'HS256',
-      audience: config.jwt.audience,
-      issuer: config.jwt.issuer,
-    });
-
-    const user = await this.unitOfService.Account.login(model, token, refreshToken);
-    if (!user) {
-      throw new CustomError('Login processing failed', 500);
-    }
-    if (!user.isEmailVerified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Please verify your email before login',
-        data: null,
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      data: { token, user },
-    });
   };
 
   logout = async (req: Request, res: Response): Promise<Response<CustomResponse<null>>> => {
@@ -139,53 +145,58 @@ export class AccountController {
       throw new CustomError('Token is required', 400);
     }
 
-    const decoded = jwt.verify(oldToken, config.jwt.secret, {
-      algorithms: ['HS256'],
-      audience: config.jwt.audience || undefined,
-      issuer: config.jwt.issuer || undefined,
-    });
+    let decoded: jwt.JwtPayload;
 
-    const userId = (decoded as any).userId;
+    try {
+      decoded = jwt.verify(oldToken, config.jwt.secret, {
+        algorithms: ['HS256'],
+        audience: config.jwt.audience || undefined,
+        issuer: config.jwt.issuer || undefined,
+      }) as jwt.JwtPayload;
+    } catch {
+      throw new CustomError('Invalid or expired refresh token', 401);
+    }
+
+
+    const userId = (decoded.userId);
 
     if (!userId) {
       throw new CustomError('Invalid refresh token', 400);
     }
 
     const user = await this.unitOfService.User.getUserById(userId);
+
     if (!user) {
       throw new CustomError('User not found', 404);
     }
-    // const userToken = user?.token;
-    // const refreshToken = user?.refreshToken;
 
-    // if (!userToken || !refreshToken) {
-    //   throw new CustomError('Token not found', 400);
-    // }
+    if (!user.refreshToken || user.refreshToken !== oldToken) {
+      throw new CustomError('Invalid refresh token', 401);
+    }
 
-    const token = jwt.sign(
-      {
-        id: (decoded as any).id,
-        userId: (decoded as any).userId,
-        name: (decoded as any).name,
-        email: (decoded as any).email,
-        role: (decoded as any).role?.toString(),
-        profileImageUrl: (decoded as any).profileImageUrl,
-        storeCode: (decoded as any).storeCode || null,
-        tokenUpdated: 'Yes',
-      },
-      config.jwt.secret,
-      {
-        expiresIn: config.jwt.accessExpires as any,
-        algorithm: 'HS256',
-        audience: config.jwt.audience,
-        issuer: config.jwt.issuer,
-        notBefore: '0', // Cannot use before now, can be configured to be deferred.
-      }
-    );
+    const tokenPayload = {
+      id: decoded.id,
+      userId: decoded.userId,
+      name: decoded.name,
+      email: decoded.email,
+      role: decoded.role,
+      profileImageUrl: decoded.profileImageUrl,
+      storeCode: decoded.storeCode || null,
+      tokenUpdated: 'Yes',
+    };
+
+    const token = jwt.sign(tokenPayload, config.jwt.secret, {
+      expiresIn: config.jwt.accessExpires as any,
+      algorithm: 'HS256',
+      audience: config.jwt.audience,
+      issuer: config.jwt.issuer,
+      notBefore: '0', // Cannot use before now, can be configured to be deferred.
+    });
 
     await this.unitOfService.Account.updateToken(userId, token);
 
     const updateUser = await this.unitOfService.User.getUserById(userId);
+
     if (!updateUser || !updateUser.token || !updateUser.refreshToken) {
       throw new CustomError('Token not found', 400);
     }
@@ -200,7 +211,7 @@ export class AccountController {
     return res.status(200).json(response);
   };
 
-  sentOtp = async (req: Request, res: Response) => {
+  sendVerificationOtp = async (req: Request, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -242,6 +253,7 @@ export class AccountController {
       return res.status(200).json({
         success: false,
         message: 'User already verified',
+        data: user,
       });
     }
 
@@ -249,6 +261,7 @@ export class AccountController {
       return res.status(400).json({
         success: false,
         message: 'OTP not generated or already used. Please resend OTP',
+        data: null,
       });
     }
 
@@ -256,6 +269,7 @@ export class AccountController {
       return res.status(400).json({
         success: false,
         message: 'OTP expired. Please resend OTP',
+        data: null,
       });
     }
 
@@ -263,6 +277,7 @@ export class AccountController {
       return res.status(400).json({
         success: false,
         message: 'Invalid OTP',
+        data: null,
       });
     }
 
@@ -321,7 +336,11 @@ export class AccountController {
     const user = await this.unitOfService.User.getByEmail(data.email);
 
     if (!user) {
-      throw new CustomError('User not found', 404);
+      return res.status(200).json({
+        success: true,
+        message: 'If the email and OTP are valid, your password has been reset.',
+        data: null,
+      });
     }
 
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
@@ -347,7 +366,6 @@ export class AccountController {
       message: 'Password reset successfully',
       data: updatedUser,
     };
-
     return res.status(200).json(response);
   };
 

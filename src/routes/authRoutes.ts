@@ -216,7 +216,7 @@ accountRouter.post("/refresh-token", authenticateToken, asyncHandler(accountCont
  *       500:
  *         description: Server error
  */
-accountRouter.post("/otp/send", authLimiter, authenticateToken, asyncHandler(accountController.sentOtp));
+accountRouter.post("/otp/send", authLimiter, authenticateToken, asyncHandler(accountController.sendVerificationOtp));
 
 /**
  * @swagger

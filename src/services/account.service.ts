@@ -14,6 +14,7 @@ import { createUserName, generateStoreCode, generateUserGUID } from "../utils/au
 import { generateOtp } from "../utils/otp.util";
 import { IAccountService } from "./interfaces/Iaccount.service";
 import { IDateTimeService } from "./interfaces/idatetime.service";
+import { getOtpExpiryDate } from "../utils/timeExpiry.util";
 
 @injectable()
 export class AccountService implements IAccountService {
@@ -32,31 +33,12 @@ export class AccountService implements IAccountService {
     return user;
   }
 
-
-  async logout(userId: string): Promise<UserDto | null> {
-    const user = await this.unitOfWork.Account.logout(userId);
-    if (!user) {
-      return null;
-    }
-    return user;
-  }
-
-  async updateToken(userId: string, token: string): Promise<UserDto | null> {
-    const user = await this.unitOfWork.Account.updateToken(userId, token);
-    if (!user) {
-      return null;
-    }
-    return user;
-  }
-
-
   async create(data: CreateUserModel, role: Role) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const { otp } = generateOtp();
     const storeCode = generateStoreCode(data.firstName);
 
     return this.unitOfWork.transaction(async (transactionClient) => {
-      // Create store entry first
       await transactionClient.store.create({
         data: {
           name: `${data.firstName} ${data.lastName}'s Store - ${storeCode}`,
@@ -65,7 +47,6 @@ export class AccountService implements IAccountService {
         },
       });
 
-      // Create user with the same storeCode
       const user = await transactionClient.users.create({
         data: {
           userId: generateUserGUID().toString(),
@@ -88,58 +69,56 @@ export class AccountService implements IAccountService {
     });
   }
 
-  convertToDto(user: users, includePassword: boolean = false, token: boolean = false, refreshToken: boolean = false,): UserDto {
-    return {
-      id: user.id,
-      userId: user.userId,
-      name: user.name,
-      userName: user.userName,
-      email: user.email,
-      phone: user.phone,
-      password: includePassword ? user.password : '',
-      role: user.role,
-      isActive: user.isActive,
-      isEmailVerified: user.isEmailVerified,
-      isPhoneVerified: user.isPhoneVerified,
-      loginAttempts: user.loginAttempts,
-      lastLoginAt: user.lastLoginAt,
-      lastLoginIP: user.lastLoginIP,
-      emailVerificationToken: user.emailVerificationToken,
-      emailVerificationExpires: user.emailVerificationExpires,
-      profileImageUrl: user.profileImageUrl,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      status: user.status,
-      token: token ? user.token : null,
-      tokenUpdated: user.tokenUpdated,
-      refreshToken: token ? user.refreshToken : null,
-      storeCode: user.storeCode || null,
-    };
-  }
 
-  async updateEmailVerification(userId: string) {
-    const { otp } = generateOtp(); // 1 minutes expiry
-
-    return this.unitOfWork.transaction(async (transactionClient) => {
-      const userss = await transactionClient.users.update({
-        where: { userId: userId },
-        data: {
-          emailVerificationToken: otp,
-          emailVerificationExpires: new Date(),
-        },
-      });
-
-      return this.convertToDto(userss);
-    });
-  }
-
-  async updateEmailStatus(email: string): Promise<UserDto | null> {
-    const user = await this.unitOfWork.Account.updateEmailStatus(email);
+  async logout(userId: string): Promise<UserDto | null> {
+    const user = await this.unitOfWork.Account.logout(userId);
     if (!user) {
       return null;
     }
     return user;
   }
+
+  async updateToken(userId: string, token: string): Promise<UserDto | null> {
+    const user = await this.unitOfWork.Account.updateToken(userId, token);
+    if (!user) {
+      return null;
+    }
+    return user;
+  }
+
+
+  async updateEmailVerification(userId: string): Promise<UserDto> {
+    const { otp } = generateOtp();
+    const otpExpiresAt = getOtpExpiryDate(10);
+
+    return this.unitOfWork.transaction(async (transactionClient) => {
+      const user = await transactionClient.users.update({
+        where: { userId },
+        data: {
+          emailVerificationToken: otp,
+          emailVerificationExpires: otpExpiresAt,
+        },
+      });
+
+      return this.convertToDto(user);
+    });
+  }
+
+  async updateEmailStatus(email: string): Promise<UserDto> {
+
+    return this.unitOfWork.transaction(async (transactionClient) => {
+      const user = await transactionClient.users.update({
+        where: { email },
+        data: {
+          isEmailVerified: true,
+        },
+      });
+
+      return this.convertToDto(user);
+    });
+  }
+
+
 
   async getUserById(userId: string): Promise<UserDto | null> {
     const user = await this.unitOfWork.User.findById(userId);
@@ -183,14 +162,53 @@ export class AccountService implements IAccountService {
 
   }
 
-  async forgotPassword(userId: string) {
-    const { otp } = generateOtp();
 
-    const user = await this.unitOfWork.Account.forgotPassword(userId, otp);
-    if (!user) {
-      return null;
-    }
-    return user;
+
+  async forgotPassword(userId: string): Promise<UserDto> {
+    const { otp } = generateOtp();
+    const otpExpiresAt = getOtpExpiryDate(10);
+
+    return this.unitOfWork.transaction(async (transactionClient) => {
+      const user = await transactionClient.users.update({
+        where: { userId },
+        data: {
+          emailVerificationToken: otp,
+          emailVerificationExpires: otpExpiresAt,
+        },
+      });
+
+      return this.convertToDto(user);
+    });
+  }
+
+
+  convertToDto(user: users, includePassword = false, includeToken = false, includeRefreshToken = false): UserDto {
+    return {
+      id: user.id,
+      userId: user.userId,
+      name: user.name,
+      userName: user.userName,
+      email: user.email,
+      phone: user.phone,
+      password: includePassword ? user.password : '',
+      role: user.role,
+      isActive: user.isActive,
+      isEmailVerified: user.isEmailVerified,
+      isPhoneVerified: user.isPhoneVerified,
+      loginAttempts: user.loginAttempts,
+      lastLoginAt: user.lastLoginAt,
+      lastLoginIP: user.lastLoginIP,
+      emailVerificationToken: user.emailVerificationToken,
+      emailVerificationExpires: user.emailVerificationExpires,
+      profileImageUrl: user.profileImageUrl,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      status: user.status,
+      token: includeToken ? user.token : null,
+      tokenUpdated: user.tokenUpdated,
+      refreshToken: includeRefreshToken ? user.refreshToken : null,
+      storeCode: user.storeCode || null,
+    };
   }
 }
 

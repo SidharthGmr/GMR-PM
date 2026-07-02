@@ -8,3 +8,8 @@ export const isExpired = (createdAt: Date, expiryMinutes: number): boolean => {
   const expiresAt = new Date(createdAt.getTime() + expiryMinutes * 60 * 1000);
   return Date.now() > expiresAt.getTime();
 };
+
+
+export const getOtpExpiryDate = (minutes: number = 10): Date => {
+  return new Date(Date.now() + minutes * 60 * 1000);
+};
