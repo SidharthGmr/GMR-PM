@@ -4,14 +4,11 @@ import { IAccountRepository } from "./interfaces/iaccount.repository";
 
 export class AccountRepository implements IAccountRepository {
 
-
-
-  async login(data: CreateUserDto, token: string, refreshToken: string): Promise<UserDto | null> {
+  async login(data: CreateUserDto, token: string): Promise<UserDto | null> {
     return prisma.users.update({
       where: { email: data.email },
       data: {
         token: token,
-        refreshToken: refreshToken,
       },
     });
   }
@@ -26,7 +23,6 @@ export class AccountRepository implements IAccountRepository {
     });
   }
 
-
   async updateToken(userId: string, token: string): Promise<UserDto | null> {
     return prisma.users.update({
       where: { userId: userId },
@@ -36,44 +32,6 @@ export class AccountRepository implements IAccountRepository {
       },
     });
   }
-
-
-
-  async create(data: CreateUserDto): Promise<UserDto | null> {
-    return prisma.users.create({
-      data,
-    });
-  }
-
-  async updateEmailVerification(
-    data: any,
-    userId: string
-  ): Promise<UserDto | null> {
-    return prisma.users.update({
-      where: { userId: userId },
-      data: {
-        emailVerificationToken: data.emailVerificationToken ?? null,
-        emailVerificationExpires: data.emailVerificationExpires ?? null,
-      },
-    });
-  }
-
-  async updateEmailStatus(email: string): Promise<UserDto | null> {
-    return prisma.users.update({
-      where: { email },
-      data: { isEmailVerified: true },
-    });
-  }
-
-
-  async resetPassword(userId: string, hashedPassword: string): Promise<UserDto | null> {
-    return await prisma.users.update({
-      where: { userId: userId },
-      data: { password: hashedPassword },
-    });
-  }
-
-
 
   async clearPasswordResetToken(email: string): Promise<UserDto | null> {
     return await prisma.users.update({

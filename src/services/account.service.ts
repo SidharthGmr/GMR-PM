@@ -1,11 +1,10 @@
 
-import type { users } from "@prisma/client";
+import { Role, users } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { inject, injectable } from "inversify";
 import { TYPES } from "../config/ioc.types";
 import { UserDto } from "../dtos/user.dto";
 import { Status } from "../enum/status.enum";
-import { Role } from "../enum/user.enum";
 import { ResetPasswordModel } from "../models/forgot-password.model";
 import { LoginModel } from "../models/login.model";
 import { CreateUserModel } from "../models/user.model";
@@ -13,27 +12,24 @@ import IUnitOfWork from "../repository/interfaces/iunitofwork.repository";
 import { createUserName, generateStoreCode, generateUserGUID } from "../utils/authHelpers.service";
 import { generateOtp } from "../utils/otp.util";
 import { IAccountService } from "./interfaces/Iaccount.service";
-import { IDateTimeService } from "./interfaces/idatetime.service";
 import { getOtpExpiryDate } from "../utils/timeExpiry.util";
 
 @injectable()
 export class AccountService implements IAccountService {
   constructor(
     @inject(TYPES.IUnitOfWork) private unitOfWork: IUnitOfWork,
-    @inject(TYPES.IDateTimeService)
-    private dateTime: IDateTimeService
   ) { }
 
 
-  async login(data: LoginModel, token: string, refreshToken: string): Promise<UserDto | null> {
-    const user = await this.unitOfWork.Account.login(data, token, refreshToken);
+  async login(data: LoginModel, token: string,): Promise<UserDto | null> {
+    const user = await this.unitOfWork.Account.login(data, token);
     if (!user) {
       return null;
     }
     return user;
   }
 
-  async create(data: CreateUserModel, role: Role) {
+  async signup(data: CreateUserModel, role: Role) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const { otp } = generateOtp();
     const storeCode = generateStoreCode(data.firstName);
@@ -56,14 +52,50 @@ export class AccountService implements IAccountService {
           email: data.email,
           password: hashedPassword,
           emailVerificationToken: otp,
-          emailVerificationExpires: this.dateTime.now(),
+          emailVerificationExpires: getOtpExpiryDate(10),
           isActive: false,
           isEmailVerified: false,
           isPhoneVerified: false,
           storeCode: storeCode,
-          role: Role.ADMIN,
+          role,
         },
       });
+
+      return this.convertToDto(user);
+    });
+  }
+
+  async create(data: CreateUserModel, storeCode: string) {
+    const hashedPassword = await bcrypt.hash(`${data.password}`, 10);
+    const { otp } = generateOtp();
+
+    return this.unitOfWork.transaction(async (transactionClient) => {
+      const user = await transactionClient.users.create({
+        data: {
+          userId: generateUserGUID().toString(),
+          name: `${data.firstName} ${data.lastName}`,
+          userName: createUserName(`${data.firstName}`, `${data.lastName}`),
+          phone: data.phone || null,
+          email: data.email,
+          password: hashedPassword,
+          emailVerificationToken: otp,
+          emailVerificationExpires: getOtpExpiryDate(10),
+          isActive: false,
+          isEmailVerified: false,
+          isPhoneVerified: false,
+          role: data.role || Role.USER,
+          storeCode: storeCode,
+        },
+      });
+
+      if (user.role === Role.STAFF) {
+        await transactionClient.staff.create({
+          data: {
+            userId: user.id,
+            storeCode: storeCode,
+          }
+        });
+      }
 
       return this.convertToDto(user);
     });
@@ -86,7 +118,6 @@ export class AccountService implements IAccountService {
     return user;
   }
 
-
   async updateEmailVerification(userId: string): Promise<UserDto> {
     const { otp } = generateOtp();
     const otpExpiresAt = getOtpExpiryDate(10);
@@ -105,20 +136,18 @@ export class AccountService implements IAccountService {
   }
 
   async updateEmailStatus(email: string): Promise<UserDto> {
-
     return this.unitOfWork.transaction(async (transactionClient) => {
       const user = await transactionClient.users.update({
         where: { email },
         data: {
           isEmailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpires: null,
         },
       });
-
       return this.convertToDto(user);
     });
   }
-
-
 
   async getUserById(userId: string): Promise<UserDto | null> {
     const user = await this.unitOfWork.User.findById(userId);
@@ -128,43 +157,52 @@ export class AccountService implements IAccountService {
     return user;
   }
 
-  async resetPassword(userId: string, data: ResetPasswordModel): Promise<UserDto | null> {
+  async resetPassword(userId: string, data: ResetPasswordModel): Promise<UserDto> {
 
     if (data.newPassword !== data.confirmPassword) {
-      throw new Error("PASSWORD_MISMATCH");
+      throw new Error("New password and confirm password do not match.");
     }
 
-    const user = await this.unitOfWork.User.findById(userId);
-    if (!user) throw new Error("USER_NOT_FOUND");
+    const existingUser = await this.unitOfWork.User.findById(userId);
 
-    if (!user.emailVerificationToken || !user.emailVerificationExpires) {
-      throw new Error("RESET_NOT_REQUESTED");
+    if (!existingUser) {
+      throw new Error("User account was not found.");
+    }
+    if (!existingUser.emailVerificationToken || !existingUser.emailVerificationExpires) {
+      throw new Error("Password reset request was not found. Please request a new OTP.");
     }
 
-    if (Date.now() > user.emailVerificationExpires.getTime()) {
-      throw new Error("OTP_EXPIRED");
+    if (Date.now() > existingUser.emailVerificationExpires.getTime()) {
+      throw new Error("OTP has expired. Please request a new OTP.");
     }
 
-    // ✅ verify OTP
-    if (user.emailVerificationToken !== data.otp) {
-      throw new Error("OTP_INVALID");
+    if (existingUser.emailVerificationToken !== data.otp) {
+      throw new Error("Invalid OTP. Please check the code and try again.");
     }
 
     const hashedPassword = await bcrypt.hash(data.newPassword, 10);
 
-    const users = await this.unitOfWork.Account.resetPassword(userId, hashedPassword);
+    return this.unitOfWork.transaction(async (transactionClient) => {
+      const updatedUser = await transactionClient.users.update({
+        where: { userId },
+        data: {
+          password: hashedPassword,
+          emailVerificationToken: null,
+          emailVerificationExpires: null,
+        },
+      });
 
-    if (!users) {
-      return null;
-    }
-    return users;
-
-
+      return this.convertToDto(updatedUser);
+    });
   }
 
+  async forgotPassword(userId: string): Promise<UserDto | null> {
+    const existingUser = await this.unitOfWork.User.findById(userId);
 
+    if (!existingUser) {
+      return null;
+    }
 
-  async forgotPassword(userId: string): Promise<UserDto> {
     const { otp } = generateOtp();
     const otpExpiresAt = getOtpExpiryDate(10);
 
@@ -181,8 +219,7 @@ export class AccountService implements IAccountService {
     });
   }
 
-
-  convertToDto(user: users, includePassword = false, includeToken = false, includeRefreshToken = false): UserDto {
+  convertToDto(user: users, includePassword = false, includeToken = false, includeRefreshToken = false, includeVerificationToken = false): UserDto {
     return {
       id: user.id,
       userId: user.userId,
@@ -198,8 +235,8 @@ export class AccountService implements IAccountService {
       loginAttempts: user.loginAttempts,
       lastLoginAt: user.lastLoginAt,
       lastLoginIP: user.lastLoginIP,
-      emailVerificationToken: user.emailVerificationToken,
-      emailVerificationExpires: user.emailVerificationExpires,
+      emailVerificationToken: includeVerificationToken ? user.emailVerificationToken : null,
+      emailVerificationExpires: includeVerificationToken ? user.emailVerificationExpires : null,
       profileImageUrl: user.profileImageUrl,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

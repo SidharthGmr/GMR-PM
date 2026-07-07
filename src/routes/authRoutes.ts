@@ -7,8 +7,10 @@ import { AccountController } from "../controllers/auth.controller";
 import asyncHandler from "../middleware/asyncHandler.middleware";
 import { authenticateToken } from "../middleware/authentication.middleware";
 import { validate } from "../middleware/validate";
-import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema, verifyOtpSchema } from "../schemas/userSchema";
+import { createUserByAdminSchema, forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema, verifyOtpSchema } from "../schemas/userSchema";
 import { authLimiter } from "../middleware/rateLimiter.middleware";
+import authorization from "../middleware/authorization.middleware";
+import { Role } from "../enum/user.enum";
 
 const accountRouter = Router();
 
@@ -124,6 +126,53 @@ accountRouter.post("/login", authLimiter, validate(loginSchema), asyncHandler(ac
  *         description: Server error
  */
 accountRouter.post("/signup", authLimiter, validate(signupSchema), asyncHandler(accountController.signup));
+
+/**
+ * @swagger
+ * /users/create-user:
+ *   post:
+ *     summary: Create User by Admin
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: clientId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Enter Client Id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - email
+ *               - password
+ *             properties:
+ *               firstName: { type: string }
+ *               lastName: { type: string }
+ *               email: { type: string }
+ *               password: { type: string }
+ *               phone: { type: string }
+ *               role: { type: string, enum: [SUPER_ADMIN, ADMIN, USER, STAFF] }
+ *     responses:
+ *       201:
+ *         description: User created successfully by admin
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Not enough permissions
+ *       409:
+ *         description: User already exists
+ */
+accountRouter.post('/create-user', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), validate(createUserByAdminSchema), asyncHandler(accountController.createUser));
 
 
 /**

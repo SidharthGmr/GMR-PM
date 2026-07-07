@@ -14,6 +14,7 @@ import { LoginModel } from '../models/login.model';
 import { CreateUserModel } from '../models/user.model';
 import IUnitOfService from '../services/interfaces/iunitof.service';
 import { isExpired } from '../utils/timeExpiry.util';
+import { generateStoreCode } from '../utils/authHelpers.service';
 
 export class AccountController {
   constructor(private unitOfService = container.get<IUnitOfService>(TYPES.IUnitOfService)) {
@@ -62,14 +63,7 @@ export class AccountController {
       issuer: config.jwt.issuer,
     });
 
-    const refreshToken = jwt.sign(tokenPayload, config.jwt.secret, {
-      expiresIn: config.jwt.refreshExpires as any,
-      algorithm: 'HS256',
-      audience: config.jwt.audience,
-      issuer: config.jwt.issuer,
-    });
-
-    const user = await this.unitOfService.Account.login(model, token, refreshToken);
+    const user = await this.unitOfService.Account.login(model, token);
 
     if (!user) {
       throw new CustomError('Login processing failed', 500);
@@ -91,7 +85,7 @@ export class AccountController {
       throw new CustomError('User already exists', 409);
     }
 
-    const newUser = await this.unitOfService.Account.create(data, Role.ADMIN);
+    const newUser = await this.unitOfService.Account.signup(data, Role.ADMIN);
 
     if (!newUser) {
       throw new CustomError('User creation failed', 400);
@@ -110,8 +104,31 @@ export class AccountController {
     return res.status(201).json(response);
   };
 
+  createUser = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const data = req.body as CreateUserModel & { role?: Role };
+    const storeCode = req.user?.storeCode || generateStoreCode(data.firstName || 'Store');
+
+    const user = await this.unitOfService.User.getByEmail(data.email);
+    if (user) {
+      throw new CustomError('User already exists', 409);
+    }
+
+    const newUser = await this.unitOfService.Account.create(data, storeCode);
+
+    if (!newUser) {
+      throw new CustomError('User creation failed', 400);
+    }
+
+    const response: CustomResponse<UserDto> = {
+      success: true,
+      message: 'User created successfully by admin',
+      data: newUser,
+    };
+    return res.status(201).json(response);
+  };
+
+
   logout = async (req: Request, res: Response): Promise<Response<CustomResponse<null>>> => {
-    // Invalidate the token (implementation depends on token storage strategy, e.g., blacklist)
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -314,7 +331,7 @@ export class AccountController {
     });
   };
 
-  resetPassword = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+  resetPassword = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto | null>>> => {
     const data = req.body as ResetPasswordModel;
 
     if (!data.email) {

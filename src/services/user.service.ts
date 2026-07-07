@@ -1,19 +1,8 @@
 import { Role as PrismaRole, users } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import { inject, injectable } from "inversify";
 import { TYPES } from "../config/ioc.types";
-import {
-  UpdateUserDto,
-  UserDto
-} from "../dtos/user.dto";
-import { Role } from "../enum/user.enum";
-import { CreateUserModel } from "../models/user.model";
+import { UpdateUserDto, UserDto } from "../dtos/user.dto";
 import type IUnitOfWork from "../repository/interfaces/iunitofwork.repository";
-import {
-  createUserName,
-  generateUserGUID
-} from "../utils/authHelpers.service";
-import { generateOtp } from "../utils/otp.util";
 import type { IDateTimeService } from "./interfaces/idatetime.service";
 import type { IUserService } from "./interfaces/Iuser.service";
 
@@ -25,42 +14,6 @@ export class UserService implements IUserService {
     private dateTime: IDateTimeService
   ) { }
 
-  async create(data: CreateUserModel, storeCode: string) {
-    const hashedPassword = await bcrypt.hash(`${data.password}`, 10);
-    const { otp } = generateOtp();
-
-    return this.unitOfWork.transaction(async (transactionClient) => {
-
-      const user = await transactionClient.users.create({
-        data: {
-          userId: generateUserGUID().toString(),
-          name: `${data.firstName} ${data.lastName}`,
-          userName: createUserName(`${data.firstName}`, `${data.lastName}`),
-          phone: data.phone || null,
-          email: data.email,
-          password: hashedPassword,
-          emailVerificationToken: otp,
-          emailVerificationExpires: this.dateTime.now(),
-          isActive: false,
-          isEmailVerified: false,
-          isPhoneVerified: false,
-          role: (data.role || Role.USER) as PrismaRole,
-          storeCode: storeCode,
-        },
-      });
-
-      if (user.role === PrismaRole.STAFF) {
-        await transactionClient.staff.create({
-          data: {
-            userId: user.id,
-            storeCode: storeCode,
-          }
-        });
-      }
-
-      return this.convertToDto(user);
-    });
-  }
 
   async getAll(storeCode?: string, storeId?: number, role?: PrismaRole | string): Promise<UserDto[] | null> {
     const userList = await this.unitOfWork.User.findAll(storeCode, storeId, role);
@@ -125,6 +78,15 @@ export class UserService implements IUserService {
     }
     return user;
   }
+
+  async getBystoreId(storeId: string): Promise<UserDto | null> {
+    const user = await this.unitOfWork.User.getBystoreId(storeId);
+    if (!user) {
+      return null;
+    }
+    return user;
+  }
+
 
   convertToDto(user: users, includePassword: boolean = false, token: boolean = false, refreshToken: boolean = false,): UserDto {
     return {

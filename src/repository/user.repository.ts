@@ -68,4 +68,11 @@ export class UserRepository implements IUserRepository {
       data: { role },
     });
   }
+
+  async getBystoreId(storeId: string): Promise<UserDto | null> {
+    return prisma.users.findFirst({
+      where: { storeCode: storeId, status: Status.Published },
+    });
+  }
+
 }

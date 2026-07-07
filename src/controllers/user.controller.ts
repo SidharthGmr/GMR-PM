@@ -29,6 +29,7 @@ export class UserController {
     } else if (req.user?.role === Role.ADMIN) {
       if (req.user.storeCode) {
         try {
+          //const store = await this.unitOfService.Store.getByCode(req.user.storeCode);
           const store = await prisma.store.findUnique({
             where: { code: req.user.storeCode }
           });
@@ -69,61 +70,62 @@ export class UserController {
     return res.status(200).json(response);
   };
 
-  getUserById = async (
-    req: Request,
-    res: Response
-  ): Promise<Response<CustomResponse<UserDto>>> => {
-    // Invalidate the token (implementation depends on token storage strategy, e.g., blacklist)
+  getUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
     const userId = req.user?.userId;
-    let response: CustomResponse<UserDto>;
+
     if (!userId) {
-      response = { success: false, message: 'userId is required' };
-      return res.status(400).json(response);
+      return res.status(400).json({
+        success: false,
+        message: 'userId is required',
+        data: null
+      });
     }
-
     const user = await this.unitOfService.User.getUserById(userId);
+
     if (!user) {
-      response = { success: false, message: 'User not found' };
-      return res.status(404).json(response);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+        data: null
+      });
     }
 
-    response = {
+    return res.status(200).json({
       success: true,
       message: 'User fetched successfully',
       data: user,
-    };
+    });
 
-    return res.status(200).json(response);
   }
 
 
 
-  getUserByEmail = async (
-    req: Request,
-    res: Response
-  ): Promise<Response<CustomResponse<UserDto>>> => {
-    // Invalidate the token (implementation depends on token storage strategy, e.g., blacklist)
+  getUserByEmail = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
     const email = req.user?.email;
-    let response: CustomResponse<UserDto>;
+
     if (!email) {
-      response = { success: false, message: 'email is required' };
-      return res.status(400).json(response);
+      return res.status(400).json({
+        success: false,
+        message: 'email is required',
+        data: null
+      });
     }
 
     const user = await this.unitOfService.User.getByEmail(email, false);
     if (!user) {
-      response = { success: false, message: 'User not found' };
-      return res.status(404).json(response);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+        data: null
+      });
     }
 
-    response = {
+    return res.status(200).json({
       success: true,
       message: 'User fetched successfully',
       data: user,
-    };
-
-    return res.status(200).json(response);
-  }
+    });
+  };
 
   updateUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
 
@@ -225,15 +227,16 @@ export class UserController {
 
   assignStore = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
     const userId = req.user?.userId;
-    const { storeId } = req.body as { storeId: number };
+    const storeId = Number(req.body.storeId);
 
     if (!userId) {
       throw new CustomError('userId is required', 400);
     }
 
-    if (!storeId) {
+    if (storeId === undefined || storeId === null) {
       throw new CustomError('storeId is required', 400);
     }
+
 
     // Verify store exists
     const store = await this.unitOfService.Store.getById(storeId);
@@ -284,26 +287,5 @@ export class UserController {
     return res.status(200).json(response);
   };
 
-  createUser = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const data = req.body as CreateUserModel & { role?: Role };
-    const storeCode = req.user?.storeCode || generateStoreCode(data.firstName || 'Store');
 
-    const user = await this.unitOfService.User.getByEmail(data.email);
-    if (user) {
-      throw new CustomError('User already exists', 409);
-    }
-
-    const newUser = await this.unitOfService.User.create(data, storeCode);
-
-    if (!newUser) {
-      throw new CustomError('User creation failed', 400);
-    }
-
-    const response: CustomResponse<UserDto> = {
-      success: true,
-      message: 'User created successfully by admin',
-      data: newUser,
-    };
-    return res.status(201).json(response);
-  };
 }

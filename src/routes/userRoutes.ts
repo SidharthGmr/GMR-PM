@@ -25,6 +25,8 @@ const usersController = container.get<UserController>(TYPES.UserController);
  *   get:
  *     summary: Get all users
  *     tags: [User]
+ *     security:
+ *      - bearerAuth: []
  *     parameters:
  *       - in: header
  *         name: clientId
@@ -77,75 +79,6 @@ userRouter.get('/email/:email', authenticateToken, usersController.getUserByEmai
 
 /**
  * @swagger
- * /users/{userId}:
- *   get:
- *     summary: Get a user by ID
- *     tags: [User]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: header
- *         name: clientId
- *         schema:
- *           type: string
- *         required: true
- *         description: Enter Client Id
- *       - in: path
- *         name: userId
- *         schema:
- *           type: string
- *         required: true
- *         description: The user ID
- *     responses:
- *       200:
- *         description: The user description by id
- *       404:
- *         description: User not found
- */
-userRouter.get('/:userId', authenticateToken, asyncHandler(usersController.getUserById));
-
-/**
- * @swagger
- * /users/status/{userId}:
- *   put:
- *     summary: Update User
- *     tags: [User]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: header
- *         name: clientId
- *         schema:
- *           type: string
- *         required: true
- *         description: Enter Client Id
- *       - in: path
- *         name: userId
- *         schema:
- *           type: string
- *         required: true
- *         description: The user ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: User updated successfully
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: User not found
- */
-userRouter.put('/status/:userId', authenticateToken, asyncHandler(usersController.updateStatusById));
-
-/**
- * @swagger
  * /users/profile:
  *   put:
  *     summary: Update User Profile
@@ -187,88 +120,9 @@ userRouter.put('/profile', authenticateToken, validate(updateProfileSchema), asy
 
 /**
  * @swagger
- * /users/{userId}:
- *   put:
- *     summary: Update User
- *     tags: [User]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: header
- *         name: clientId
- *         schema:
- *           type: string
- *         required: true
- *         description: Enter Client Id
- *       - in: path
- *         name: userId
- *         schema:
- *           type: string
- *         required: true
- *         description: The user ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               userName:
- *                 type: string
- *               password:
- *                 type: string
- *               phone:
- *                 type: string
- *               profileImageUrl:
- *                 type: string
- *     responses:
- *       200:
- *         description: User updated successfully
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: User not found
- */
-
-userRouter.put('/:userId', authenticateToken, asyncHandler(usersController.updateUserById));
-
-/**
- * @swagger
- * /users/{userId}:
- *   delete:
- *     summary: Delete a user by ID
- *     tags: [User]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: header
- *         name: clientId
- *         schema:
- *           type: string
- *         required: true
- *         description: Enter Client Id
- *       - in: path
- *         name: userId
- *         schema:
- *           type: string
- *         required: true
- *         description: The user ID
- *     responses:
- *       200:
- *         description: The user description by id
- *       404:
- *         description: User not found
- */
-
-userRouter.delete('/:userId', authenticateToken, asyncHandler(usersController.deleteUserById));
-
-/**
- * @swagger
  * /users/assign-store:
  *   patch:
- *     summary: Assign a store to the authenticated user
+ *     summary: Assign a store to the current authenticated user
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -351,11 +205,12 @@ userRouter.patch('/assign-store', authenticateToken, asyncHandler(usersControlle
  */
 userRouter.put('/role/:userId', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), validate(updateRoleSchema), asyncHandler(usersController.updateRole));
 
+
 /**
  * @swagger
- * /users/create-user:
- *   post:
- *     summary: Create User by Admin
+ * /users/status/{userId}:
+ *   put:
+ *     summary: Update User
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -366,36 +221,142 @@ userRouter.put('/role/:userId', authenticateToken, authorization([Role.SUPER_ADM
  *           type: string
  *         required: true
  *         description: Enter Client Id
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The user ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - firstName
- *               - lastName
- *               - email
- *               - password
  *             properties:
- *               firstName: { type: string }
- *               lastName: { type: string }
- *               email: { type: string }
- *               password: { type: string }
- *               phone: { type: string }
- *               role: { type: string, enum: [SUPER_ADMIN, ADMIN, USER, STAFF] }
+ *               status:
+ *                 type: boolean
  *     responses:
- *       201:
- *         description: User created successfully by admin
- *       400:
- *         description: Bad request
+ *       200:
+ *         description: User updated successfully
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden - Not enough permissions
- *       409:
- *         description: User already exists
+ *       404:
+ *         description: User not found
  */
-userRouter.post('/create-user', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), validate(createUserByAdminSchema), asyncHandler(usersController.createUser));
+userRouter.put('/status/:userId', authenticateToken, asyncHandler(usersController.updateStatusById));
+
+
+/**
+ * @swagger
+ * /users/{userId}:
+ *   get:
+ *     summary: Get a user by ID
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: clientId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Enter Client Id
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The user ID
+ *     responses:
+ *       200:
+ *         description: The user description by id
+ *       404:
+ *         description: User not found
+ */
+userRouter.get('/:userId', authenticateToken, asyncHandler(usersController.getUserById));
+
+/**
+ * @swagger
+ * /users/{userId}:
+ *   put:
+ *     summary: Update User
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: clientId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Enter Client Id
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The user ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               userName:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               profileImageUrl:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
+
+userRouter.put('/:userId', authenticateToken, asyncHandler(usersController.updateUserById));
+
+/**
+ * @swagger
+ * /users/{userId}:
+ *   delete:
+ *     summary: Delete a user by ID
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: clientId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Enter Client Id
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The user ID
+ *     responses:
+ *       200:
+ *         description: The user description by id
+ *       404:
+ *         description: User not found
+ */
+
+userRouter.delete('/:userId', authenticateToken, asyncHandler(usersController.deleteUserById));
+
+
+
+
 
 export default userRouter;

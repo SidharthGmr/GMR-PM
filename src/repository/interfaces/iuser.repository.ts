@@ -9,4 +9,5 @@ export interface IUserRepository {
   updateStatus(id: string, updatedData: UpdateUserDto): Promise<UserDto>;
   delete(id: string): Promise<UserDto>;
   updateRole(id: string, role: Role): Promise<UserDto>;
+  getBystoreId(storeId: string): Promise<UserDto | null>;
 }

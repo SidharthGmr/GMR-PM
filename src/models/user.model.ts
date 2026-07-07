@@ -1,3 +1,5 @@
+import { Role } from "@prisma/client";
+
 export interface CreateUserModel {
   firstName: string;
   lastName: string;
@@ -5,5 +7,5 @@ export interface CreateUserModel {
   phone?: string;
   password: string;
   isRegisteredByShop?: boolean;
-  role?: string;
+  role?: Role;
 }
