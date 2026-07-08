@@ -227,7 +227,7 @@ export class AccountService implements IAccountService {
       userName: user.userName,
       email: user.email,
       phone: user.phone,
-      password: includePassword ? user.password : '',
+      password: includePassword ? user.password : null,
       role: user.role,
       isActive: user.isActive,
       isEmailVerified: user.isEmailVerified,

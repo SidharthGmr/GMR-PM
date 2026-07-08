@@ -29,7 +29,6 @@ export const swaggerOptions = {
       { name: 'OrderItem', description: 'Order item endpoints' },
       { name: 'Payment', description: 'Payment endpoints' },
       { name: 'StaffSalary', description: 'Staff salary endpoints' },
-
     ],
     // Use a relative server URL so Swagger UI uses the current origin.
     // This avoids localhost being embedded at build time when deployed to Vercel.

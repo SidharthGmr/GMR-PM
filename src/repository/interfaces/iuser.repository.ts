@@ -1,8 +1,9 @@
 import { Role } from "@prisma/client";
 import { UpdateUserDto, UserDto } from "../../dtos/user.dto";
+import { UserFilterParams } from "../../params/user.params";
 
 export interface IUserRepository {
-  findAll(storeCode?: string, storeId?: number, role?: Role | string): Promise<UserDto[]>;
+  findAll(filters: UserFilterParams): Promise<UserDto[]>;
   findById(id: string): Promise<UserDto | null>;
   findByEmail(email: string): Promise<UserDto | null>;
   update(id: string, updatedData: UpdateUserDto): Promise<UserDto>;

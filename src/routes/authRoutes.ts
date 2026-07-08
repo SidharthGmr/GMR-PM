@@ -129,10 +129,10 @@ accountRouter.post("/signup", authLimiter, validate(signupSchema), asyncHandler(
 
 /**
  * @swagger
- * /users/create-user:
+ * /auth/create-user:
  *   post:
  *     summary: Create User by Admin
- *     tags: [User]
+ *     tags: [Account]
  *     security:
  *       - bearerAuth: []
  *     parameters:

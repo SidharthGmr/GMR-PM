@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { Role, Status } from '@prisma/client';
 import prisma from '../config/prisma';
 import { Request, Response } from 'express';
 import { container } from '../config/ioc.config';
@@ -7,64 +7,138 @@ import CustomResponse from '../dtos/custom-response';
 import { ListResponseDto } from '../dtos/list-response.dto';
 import { UpdateUserDto, UserDto } from '../dtos/user.dto';
 import CustomError from '../exceptions/custom-error';
-import { CreateUserModel } from '../models/user.model';
 import IUnitOfService from '../services/interfaces/iunitof.service';
-import { generateStoreCode } from '../utils/authHelpers.service';
+import { UserFilterParams } from '../params/user.params';
 
 export class UserController {
   constructor(private unitOfService = container.get<IUnitOfService>(TYPES.IUnitOfService)) {
     this.unitOfService = unitOfService;
   }
 
+  // getAllUsers = async (req: Request, res: Response): Promise<Response<CustomResponse<ListResponseDto<UserDto>>>> => {
+
+  //   const filters: UserFilterParams = Object.fromEntries(
+  //     Object.entries({
+  //       page: req.query['page'] ? parseInt(req.query['page'] as string) : undefined,
+  //       recordPerPage: req.query['recordPerPage'] ? parseInt(req.query['recordPerPage'] as string) : undefined,
+  //       search: req.query['search'] as string | undefined,
+  //       status: req.query['status'] ? req.query['status'] as Status : undefined,
+  //       showAllRecords: req.query['showAllRecords'] !== undefined ? req.query['showAllRecords'] === 'true' : undefined,
+  //       storeCode: req.user?.storeCode || undefined,
+  //       email: req.query.email as string | undefined,
+  //       userId: req.query.userId as string | undefined,
+  //       phone: req.query.phone as string | undefined,
+  //       role: req.query.role as Role | undefined,
+  //       isActive:
+  //         req.query.isActive !== undefined
+  //           ? req.query.isActive === "true"
+  //           : undefined,
+
+  //     }).filter(([, v]) => v !== undefined)
+  //   );
+
+
+  //   let response: CustomResponse<ListResponseDto<UserDto>>;
+
+  //   let storeCode = req.query.storeCode as string | undefined;
+
+  //   if (req.user?.role === Role.SUPER_ADMIN) {
+  //     storeCode = undefined;
+  //   } else if (req.user?.role === Role.ADMIN) {
+  //     if (req.user.storeCode) {
+  //       try {
+  //         //const store = await this.unitOfService.Store.getByCode(req.user.storeCode);
+  //         const store = await prisma.store.findUnique({
+  //           where: { code: req.user.storeCode }
+  //         });
+  //         if (store) {
+  //           storeCode = store.id;
+  //         }
+  //       } catch (err) {
+  //         // ignore
+  //       }
+  //     }
+  //     if (storeCode === undefined) {
+  //       storeCode = req.user.storeCode || undefined;
+  //     } else {
+  //       storeCode = undefined;
+  //     }
+  //   } else {
+  //     const storeIdStr = req.query.storeId as string | undefined;
+  //     if (storeIdStr) {
+  //       const parsedStoreId = parseInt(storeIdStr, 10);
+  //       if (!isNaN(parsedStoreId)) {
+  //         storeId = parsedStoreId;
+  //       }
+  //     }
+  //   }
+
+  //   const user = await this.unitOfService.User.getAll(filters);
+  //   if (!user) {
+  //     response = { success: false, message: 'User not found' };
+  //     return res.status(404).json(response);
+  //   }
+  //   const totalRecord = user.length;
+  //   response = {
+  //     success: true,
+  //     message: 'User fetched successfully',
+  //     data: { totalRecord, data: user },
+  //   };
+
+  //   return res.status(200).json(response);
+  // };
+
   getAllUsers = async (req: Request, res: Response): Promise<Response<CustomResponse<ListResponseDto<UserDto>>>> => {
-    let response: CustomResponse<ListResponseDto<UserDto>>;
 
-    let storeCode = req.query.storeCode as string | undefined;
-    let storeId: number | undefined;
-    const role = req.query.role as string | undefined;
 
+    const filters: UserFilterParams = Object.fromEntries(
+      Object.entries({
+        page: req.query['page'] ? parseInt(req.query['page'] as string) : undefined,
+        recordPerPage: req.query['recordPerPage'] ? parseInt(req.query['recordPerPage'] as string) : undefined,
+        search: req.query['search'] as string | undefined,
+        status: req.query['status'] ? req.query['status'] as Status : undefined,
+        showAllRecords: req.query['showAllRecords'] !== undefined ? req.query['showAllRecords'] === 'true' : undefined,
+        storeCode: req.user?.storeCode || undefined,
+        email: req.query.email as string | undefined,
+        userId: req.query.userId as string | undefined,
+        phone: req.query.phone as string | undefined,
+        role: req.query.role ? (req.query.role as Role) : undefined,
+
+      }).filter(([, value]) => value !== undefined && value !== "")
+    ) as UserFilterParams;
+
+    /**
+     * Role-based filtering
+     */
     if (req.user?.role === Role.SUPER_ADMIN) {
-      storeCode = undefined;
-      storeId = undefined;
+      const storeCode = req.user?.storeCode;
+      //filters.storeCode = req.user?.storeCode || undefined;
     } else if (req.user?.role === Role.ADMIN) {
-      if (req.user.storeCode) {
-        try {
-          //const store = await this.unitOfService.Store.getByCode(req.user.storeCode);
-          const store = await prisma.store.findUnique({
-            where: { code: req.user.storeCode }
-          });
-          if (store) {
-            storeId = store.id;
-          }
-        } catch (err) {
-          // ignore
-        }
-      }
-      if (storeId === undefined) {
-        storeCode = req.user.storeCode || undefined;
-      } else {
-        storeCode = undefined;
-      }
+      const storeCode = req.user?.storeCode;
+
     } else {
-      const storeIdStr = req.query.storeId as string | undefined;
-      if (storeIdStr) {
-        const parsedStoreId = parseInt(storeIdStr, 10);
-        if (!isNaN(parsedStoreId)) {
-          storeId = parsedStoreId;
-        }
-      }
+      const storeCode = req.user?.storeCode;
+      const userId = req.user?.userId;
+
     }
 
-    const user = await this.unitOfService.User.getAll(storeCode, storeId, role);
-    if (!user) {
-      response = { success: false, message: 'User not found' };
-      return res.status(404).json(response);
+    const users = await this.unitOfService.User.getAll(filters);
+    if (!users) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+        data: null
+      });
     }
-    const totalRecord = user.length;
-    response = {
+
+    const totalRecord = users.length;
+    const response: CustomResponse<ListResponseDto<UserDto>> = {
       success: true,
-      message: 'User fetched successfully',
-      data: { totalRecord, data: user },
+      message: "User fetched successfully",
+      data: {
+        totalRecord: totalRecord,
+        data: users,
+      },
     };
 
     return res.status(200).json(response);
@@ -72,7 +146,6 @@ export class UserController {
 
   getUserById = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
     const userId = req.user?.userId;
-
     if (!userId) {
       return res.status(400).json({
         success: false,

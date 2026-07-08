@@ -1,9 +1,10 @@
 import { Role } from "@prisma/client";
 import { UpdateUserDto, UserDto } from "../../dtos/user.dto";
 import { CreateUserModel } from "../../models/user.model";
+import { UserFilterParams } from "../../params/user.params";
 
 export interface IUserService {
-  getAll(storeCode?: string, storeId?: number, role?: Role | string): Promise<UserDto[] | null>;
+  getAll(filters: UserFilterParams): Promise<UserDto[] | null>;
   getUserById(userId: string): Promise<UserDto | null>;
   getByEmail(email: string, includePassword?: boolean): Promise<UserDto | null>;
   update(userId: string, updatedData: UpdateUserDto): Promise<UserDto | null>;

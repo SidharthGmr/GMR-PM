@@ -4,7 +4,8 @@ import CustomResponse from '../dtos/custom-response';
 import { TYPES } from '../config/ioc.types';
 import IUnitOfService from '../services/interfaces/iunitof.service';
 import { container } from '../config/ioc.config';
-import { Role } from '../enum/user.enum';
+import { Role } from '@prisma/client';
+
 
 /**
  * RBAC middleware — must be placed AFTER authenticateToken so that req.user is populated.

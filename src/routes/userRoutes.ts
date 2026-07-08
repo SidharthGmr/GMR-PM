@@ -4,10 +4,10 @@ import { container } from '../config/ioc.config';
 import { TYPES } from '../config/ioc.types';
 import { UserController } from '../controllers/user.controller';
 import asyncHandler from '../middleware/asyncHandler.middleware';
-import { Role } from '../enum/user.enum';
 import authorization from '../middleware/authorization.middleware';
 import { validate } from '../middleware/validate';
-import { updateRoleSchema, createUserByAdminSchema, updateProfileSchema } from '../schemas/userSchema';
+import { updateRoleSchema, updateProfileSchema } from '../schemas/userSchema';
+import { Role } from '@prisma/client';
 
 const userRouter = Router();
 const usersController = container.get<UserController>(TYPES.UserController);
@@ -26,7 +26,7 @@ const usersController = container.get<UserController>(TYPES.UserController);
  *     summary: Get all users
  *     tags: [User]
  *     security:
- *      - bearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: header
  *         name: clientId
@@ -35,16 +35,96 @@ const usersController = container.get<UserController>(TYPES.UserController);
  *         required: true
  *         description: Enter Client Id
  *       - in: query
- *         name: role
+ *         name: email
+ *         schema:
+ *           type: string
+ *           format: email
+ *         required: false
+ *         description: Filter users by email
+ *       - in: query
+ *         name: userId
  *         schema:
  *           type: string
  *         required: false
- *         description: Filter users by role (e.g., USER, STAFF, ADMIN)
+ *         description: Filter users by user ID
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [SUPER_ADMIN, ADMIN, USER, STAFF]
+ *         required: false
+ *         description: Filter users by role
+ *       - in: query
+ *         name: storeCode
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter users by store code
+ *       - in: query
+ *         name: phone
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter users by phone number
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Page number for pagination (optional)
+ *       - in: query
+ *         name: recordPerPage
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Number of records per page (optional)
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Search term to filter users by name, email, username, or phone (optional)
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Published, Draft, Trash]
+ *         required: false
+ *         description: Filter by status (optional)
+ *       - in: query
+ *         name: showAllRecords
+ *         schema:
+ *           type: boolean
+ *         required: false
+ *         description: Show all records without pagination (optional)
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: Filter by start date (optional)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: Filter by end date (optional)
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *          type: boolean
+ *          required: false
+ *          description: Filter users by active status
  *     responses:
  *       200:
  *         description: List of all users
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
-
 userRouter.get('/', authenticateToken, asyncHandler(usersController.getAllUsers));
 
 /**
@@ -75,7 +155,55 @@ userRouter.get('/', authenticateToken, asyncHandler(usersController.getAllUsers)
  *       404:
  *         description: User not found
  */
-userRouter.get('/email/:email', authenticateToken, usersController.getUserByEmail);
+userRouter.get('/email/:email', authenticateToken, asyncHandler(usersController.getUserByEmail));
+
+/**
+ * @swagger
+ * /users/role/{userId}:
+ *   put:
+ *     summary: Update User Role
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: clientId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Enter Client Id
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The user ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [SUPER_ADMIN, ADMIN, USER, STAFF]
+ *     responses:
+ *       200:
+ *         description: User role updated successfully
+ *       400:
+ *         description: Bad request - missing or invalid role
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Not enough permissions
+ *       404:
+ *         description: User not found
+ */
+userRouter.put('/role/:userId', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), validate(updateRoleSchema), asyncHandler(usersController.updateRole));
+
 
 /**
  * @swagger
@@ -158,11 +286,14 @@ userRouter.put('/profile', authenticateToken, validate(updateProfileSchema), asy
  */
 userRouter.patch('/assign-store', authenticateToken, asyncHandler(usersController.assignStore));
 
+
+
+
 /**
  * @swagger
- * /users/role/{userId}:
+ * /users/status/{userId}:
  *   put:
- *     summary: Update User Role
+ *     summary: Update User Status
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -186,16 +317,16 @@ userRouter.patch('/assign-store', authenticateToken, asyncHandler(usersControlle
  *           schema:
  *             type: object
  *             required:
- *               - role
+ *               - status
  *             properties:
- *               role:
+ *               status:
  *                 type: string
- *                 enum: [SUPER_ADMIN, ADMIN, USER, STAFF]
+ *                 enum: [Published, Draft, Deleted]
  *     responses:
  *       200:
- *         description: User role updated successfully
+ *         description: User status updated successfully
  *       400:
- *         description: Bad request - missing or invalid role
+ *         description: Bad request - missing or invalid status
  *       401:
  *         description: Unauthorized
  *       403:
@@ -203,48 +334,7 @@ userRouter.patch('/assign-store', authenticateToken, asyncHandler(usersControlle
  *       404:
  *         description: User not found
  */
-userRouter.put('/role/:userId', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), validate(updateRoleSchema), asyncHandler(usersController.updateRole));
-
-
-/**
- * @swagger
- * /users/status/{userId}:
- *   put:
- *     summary: Update User
- *     tags: [User]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: header
- *         name: clientId
- *         schema:
- *           type: string
- *         required: true
- *         description: Enter Client Id
- *       - in: path
- *         name: userId
- *         schema:
- *           type: string
- *         required: true
- *         description: The user ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: User updated successfully
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: User not found
- */
-userRouter.put('/status/:userId', authenticateToken, asyncHandler(usersController.updateStatusById));
+userRouter.put('/status/:userId', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), asyncHandler(usersController.updateStatusById));
 
 
 /**
@@ -323,7 +413,7 @@ userRouter.get('/:userId', authenticateToken, asyncHandler(usersController.getUs
  *         description: User not found
  */
 
-userRouter.put('/:userId', authenticateToken, asyncHandler(usersController.updateUserById));
+userRouter.put('/:userId', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), asyncHandler(usersController.updateUserById));
 
 /**
  * @swagger
@@ -353,10 +443,6 @@ userRouter.put('/:userId', authenticateToken, asyncHandler(usersController.updat
  *         description: User not found
  */
 
-userRouter.delete('/:userId', authenticateToken, asyncHandler(usersController.deleteUserById));
-
-
-
-
+userRouter.delete('/:userId', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), asyncHandler(usersController.deleteUserById));
 
 export default userRouter;

@@ -5,6 +5,7 @@ import { UpdateUserDto, UserDto } from "../dtos/user.dto";
 import type IUnitOfWork from "../repository/interfaces/iunitofwork.repository";
 import type { IDateTimeService } from "./interfaces/idatetime.service";
 import type { IUserService } from "./interfaces/Iuser.service";
+import { UserFilterParams } from "../params/user.params";
 
 @injectable()
 export class UserService implements IUserService {
@@ -15,8 +16,8 @@ export class UserService implements IUserService {
   ) { }
 
 
-  async getAll(storeCode?: string, storeId?: number, role?: PrismaRole | string): Promise<UserDto[] | null> {
-    const userList = await this.unitOfWork.User.findAll(storeCode, storeId, role);
+  async getAll(filters: UserFilterParams): Promise<UserDto[] | null> {
+    const userList = await this.unitOfWork.User.findAll(filters);
     if (!userList || userList.length === 0) {
       throw new Error("No user found");
     }

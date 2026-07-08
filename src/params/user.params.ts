@@ -1,13 +1,10 @@
-
-
-export interface UserFilterParams {
+import { Role, Status } from "@prisma/client";
+import { PageFilterParams } from "./page.params";
+export interface UserFilterParams extends PageFilterParams {
   email?: string;
-  phoneNumber?: string;
+  userId?: string;
   isActive?: boolean;
-  isEmailVerified?: boolean;
-  isPhoneVerified?: boolean;
-  twoFactorEnabled?: boolean;
-  firstName?: string;
-  lastName?: string;
-  search?: string; // Search in firstName, lastName or email
+  status?: Status;
+  role?: Role;
+  phone?: string;
 }
