@@ -6,7 +6,7 @@ import { UserController } from '../controllers/user.controller';
 import asyncHandler from '../middleware/asyncHandler.middleware';
 import authorization from '../middleware/authorization.middleware';
 import { validate } from '../middleware/validate';
-import { updateRoleSchema, updateProfileSchema } from '../schemas/userSchema';
+import { updateRoleSchema, updateProfileSchema, superAdminUpdateRoleSchema } from '../schemas/userSchema';
 import { Role } from '@prisma/client';
 
 const userRouter = Router();
@@ -204,6 +204,58 @@ userRouter.get('/email/:email', authenticateToken, asyncHandler(usersController.
  */
 userRouter.put('/role/:userId', authenticateToken, authorization([Role.SUPER_ADMIN, Role.ADMIN]), validate(updateRoleSchema), asyncHandler(usersController.updateRole));
 
+/**
+ * @swagger
+ * /users/super-admin/update:
+ *   put:
+ *     summary: Super admin updates user role/status by email, userId, or phone
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: clientId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Enter Client Id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             oneOf:
+ *               - required: [email]
+ *               - required: [userId]
+ *               - required: [phone]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               userId:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [SUPER_ADMIN, ADMIN, USER, STAFF]
+ *               status:
+ *                 type: string
+ *                 enum: [Published, Draft, Trash]
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       400:
+ *         description: Bad request - missing identifier or update field
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only super admin can access
+ *       404:
+ *         description: User not found
+ */
+userRouter.put('/super-admin/update', authenticateToken, authorization([Role.SUPER_ADMIN]), validate(superAdminUpdateRoleSchema), asyncHandler(usersController.superAdminUpdateRole));
 
 /**
  * @swagger

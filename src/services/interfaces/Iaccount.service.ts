@@ -12,6 +12,7 @@ export interface IAccountService {
   logout(userId: string): Promise<UserDto | null>;
   updateToken(userId: string, token: string): Promise<UserDto | null>;
   updateEmailVerification(userId: string): Promise<UserDto>;
+  sendVerificationOtp(userId: string): Promise<UserDto>;
   updateEmailStatus(email: string): Promise<UserDto | null>;
   resetPassword(userId: string, data: ResetPasswordModel): Promise<UserDto>;
   forgotPassword(userId: string): Promise<UserDto | null>;

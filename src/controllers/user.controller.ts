@@ -1,5 +1,4 @@
 import { Role, Status } from '@prisma/client';
-import prisma from '../config/prisma';
 import { Request, Response } from 'express';
 import { container } from '../config/ioc.config';
 import { TYPES } from '../config/ioc.types';
@@ -15,82 +14,8 @@ export class UserController {
     this.unitOfService = unitOfService;
   }
 
-  // getAllUsers = async (req: Request, res: Response): Promise<Response<CustomResponse<ListResponseDto<UserDto>>>> => {
-
-  //   const filters: UserFilterParams = Object.fromEntries(
-  //     Object.entries({
-  //       page: req.query['page'] ? parseInt(req.query['page'] as string) : undefined,
-  //       recordPerPage: req.query['recordPerPage'] ? parseInt(req.query['recordPerPage'] as string) : undefined,
-  //       search: req.query['search'] as string | undefined,
-  //       status: req.query['status'] ? req.query['status'] as Status : undefined,
-  //       showAllRecords: req.query['showAllRecords'] !== undefined ? req.query['showAllRecords'] === 'true' : undefined,
-  //       storeCode: req.user?.storeCode || undefined,
-  //       email: req.query.email as string | undefined,
-  //       userId: req.query.userId as string | undefined,
-  //       phone: req.query.phone as string | undefined,
-  //       role: req.query.role as Role | undefined,
-  //       isActive:
-  //         req.query.isActive !== undefined
-  //           ? req.query.isActive === "true"
-  //           : undefined,
-
-  //     }).filter(([, v]) => v !== undefined)
-  //   );
-
-
-  //   let response: CustomResponse<ListResponseDto<UserDto>>;
-
-  //   let storeCode = req.query.storeCode as string | undefined;
-
-  //   if (req.user?.role === Role.SUPER_ADMIN) {
-  //     storeCode = undefined;
-  //   } else if (req.user?.role === Role.ADMIN) {
-  //     if (req.user.storeCode) {
-  //       try {
-  //         //const store = await this.unitOfService.Store.getByCode(req.user.storeCode);
-  //         const store = await prisma.store.findUnique({
-  //           where: { code: req.user.storeCode }
-  //         });
-  //         if (store) {
-  //           storeCode = store.id;
-  //         }
-  //       } catch (err) {
-  //         // ignore
-  //       }
-  //     }
-  //     if (storeCode === undefined) {
-  //       storeCode = req.user.storeCode || undefined;
-  //     } else {
-  //       storeCode = undefined;
-  //     }
-  //   } else {
-  //     const storeIdStr = req.query.storeId as string | undefined;
-  //     if (storeIdStr) {
-  //       const parsedStoreId = parseInt(storeIdStr, 10);
-  //       if (!isNaN(parsedStoreId)) {
-  //         storeId = parsedStoreId;
-  //       }
-  //     }
-  //   }
-
-  //   const user = await this.unitOfService.User.getAll(filters);
-  //   if (!user) {
-  //     response = { success: false, message: 'User not found' };
-  //     return res.status(404).json(response);
-  //   }
-  //   const totalRecord = user.length;
-  //   response = {
-  //     success: true,
-  //     message: 'User fetched successfully',
-  //     data: { totalRecord, data: user },
-  //   };
-
-  //   return res.status(200).json(response);
-  // };
 
   getAllUsers = async (req: Request, res: Response): Promise<Response<CustomResponse<ListResponseDto<UserDto>>>> => {
-
-
     const filters: UserFilterParams = Object.fromEntries(
       Object.entries({
         page: req.query['page'] ? parseInt(req.query['page'] as string) : undefined,
@@ -354,6 +279,32 @@ export class UserController {
     const response: CustomResponse<UserDto> = {
       success: true,
       message: 'User role updated successfully',
+      data: user,
+    };
+
+    return res.status(200).json(response);
+  };
+
+  superAdminUpdateRole = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
+    const { email, userId, phone, role, status } = req.body as { email?: string; userId?: string; phone?: string; role?: Role; status?: Status };
+
+    const identifier: { email?: string; userId?: string; phone?: string } = {};
+    if (email) identifier.email = email;
+    if (userId) identifier.userId = userId;
+    if (phone) identifier.phone = phone;
+
+    const updateData: { role?: Role; status?: Status } = {};
+    if (role) updateData.role = role;
+    if (status) updateData.status = status;
+
+    const user = await this.unitOfService.User.updateUserByIdentifier(identifier, updateData);
+    if (!user) {
+      throw new CustomError('User not found', 404);
+    }
+
+    const response: CustomResponse<UserDto> = {
+      success: true,
+      message: 'User updated successfully',
       data: user,
     };
 

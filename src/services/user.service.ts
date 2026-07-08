@@ -1,4 +1,4 @@
-import { Role as PrismaRole, users } from "@prisma/client";
+import { Role as PrismaRole, Status as PrismaStatus, users } from "@prisma/client";
 import { inject, injectable } from "inversify";
 import { TYPES } from "../config/ioc.types";
 import { UpdateUserDto, UserDto } from "../dtos/user.dto";
@@ -78,6 +78,39 @@ export class UserService implements IUserService {
       return null;
     }
     return user;
+  }
+
+  async updateUserByIdentifier(
+    identifier: { email?: string; userId?: string; phone?: string },
+    data: { role?: PrismaRole; status?: PrismaStatus }
+  ): Promise<UserDto | null> {
+    const { email, userId, phone } = identifier;
+
+    let user: UserDto | null = null;
+
+    if (userId) {
+      user = await this.unitOfWork.User.findById(userId);
+    } else if (email) {
+      user = await this.unitOfWork.User.findByEmail(email);
+    } else if (phone) {
+      user = await this.unitOfWork.User.findByPhone(phone);
+    }
+
+    if (!user) {
+      return null;
+    }
+
+    let result: UserDto | null = user;
+
+    if (data.role) {
+      result = await this.unitOfWork.User.updateRole(user.userId, data.role);
+    }
+
+    if (data.status) {
+      result = await this.unitOfWork.User.update(user.userId, { status: data.status });
+    }
+
+    return result;
   }
 
   async getBystoreId(storeId: string): Promise<UserDto | null> {

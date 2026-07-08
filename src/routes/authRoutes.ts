@@ -7,7 +7,7 @@ import { AccountController } from "../controllers/auth.controller";
 import asyncHandler from "../middleware/asyncHandler.middleware";
 import { authenticateToken } from "../middleware/authentication.middleware";
 import { validate } from "../middleware/validate";
-import { createUserByAdminSchema, forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema, verifyOtpSchema } from "../schemas/userSchema";
+import { createUserByAdminSchema, forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema, verifyOtpSchema, verifyOtpByIdSchema, sendOtpSchema } from "../schemas/userSchema";
 import { authLimiter } from "../middleware/rateLimiter.middleware";
 import authorization from "../middleware/authorization.middleware";
 import { Role } from "../enum/user.enum";
@@ -244,7 +244,7 @@ accountRouter.post("/refresh-token", authenticateToken, asyncHandler(accountCont
  * @swagger
  * /auth/otp/send:
  *   post:
- *     summary: Send OTP to authenticated user
+ *     summary: Send OTP (by email/userId in body, or from JWT token)
  *     tags: [Account]
  *     security:
  *       - bearerAuth: []
@@ -255,6 +255,15 @@ accountRouter.post("/refresh-token", authenticateToken, asyncHandler(accountCont
  *           type: string
  *         required: true
  *         description: Enter Client Id
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
  *     responses:
  *       200:
  *         description: OTP sent successfully
@@ -265,7 +274,7 @@ accountRouter.post("/refresh-token", authenticateToken, asyncHandler(accountCont
  *       500:
  *         description: Server error
  */
-accountRouter.post("/otp/send", authLimiter, authenticateToken, asyncHandler(accountController.sendVerificationOtp));
+accountRouter.post("/otp/send", authLimiter, validate(sendOtpSchema), asyncHandler(accountController.sendVerificationOtp));
 
 /**
  * @swagger
@@ -290,7 +299,17 @@ accountRouter.post("/otp/send", authLimiter, authenticateToken, asyncHandler(acc
  *             type: object
  *             required:
  *               - otp
+ *             oneOf:
+ *               - required: [email]
+ *               - required: [userId]
  *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User email
+ *               userId:
+ *                 type: string
+ *                 description: User ID
  *               otp:
  *                 type: string
  *                 example: "7452"
@@ -307,7 +326,7 @@ accountRouter.post("/otp/send", authLimiter, authenticateToken, asyncHandler(acc
  *       500:
  *         description: Server error
  */
-accountRouter.post("/verify-otp", authLimiter, authenticateToken, validate(verifyOtpSchema), asyncHandler(accountController.otpVerify));
+accountRouter.post("/verify-otp", authLimiter, validate(verifyOtpSchema), asyncHandler(accountController.otpVerify));
 
 
 /**

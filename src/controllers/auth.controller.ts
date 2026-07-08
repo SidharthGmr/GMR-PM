@@ -229,13 +229,14 @@ export class AccountController {
   };
 
   sendVerificationOtp = async (req: Request, res: Response) => {
-    const userId = req.user?.userId;
+    const { email } = req.body as { email: string };
 
-    if (!userId) {
-      throw new CustomError('Unauthorized', 401);
+    const userByEmail = await this.unitOfService.User.getByEmail(email);
+    if (!userByEmail) {
+      throw new CustomError('User not found', 404);
     }
 
-    const user = await this.unitOfService.Account.forgotPassword(userId);
+    const user = await this.unitOfService.Account.sendVerificationOtp(userByEmail.userId);
     if (!user) {
       throw new CustomError('User not found', 404);
     }
@@ -249,18 +250,19 @@ export class AccountController {
   };
 
   otpVerify = async (req: Request, res: Response): Promise<Response<CustomResponse<UserDto>>> => {
-    const userId = req.user?.userId;
-    const { otp } = req.body as { otp: string };
-
-    if (!userId) {
-      throw new CustomError('User ID is required', 401);
-    }
+    const { otp, email } = req.body as { otp: string; email?: string };
+    const userId = req.body.userId || req.params.userId;
 
     if (!otp) {
       throw new CustomError('OTP is required', 400);
     }
 
-    const user = await this.unitOfService.User.getUserById(userId);
+    let user: UserDto | null = null;
+    if (userId) {
+      user = await this.unitOfService.User.getUserById(userId);
+    } else if (email) {
+      user = await this.unitOfService.User.getByEmail(email);
+    }
 
     if (!user) {
       throw new CustomError('User not found', 404);

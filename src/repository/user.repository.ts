@@ -29,6 +29,12 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  async findByPhone(phone: string): Promise<UserDto | null> {
+    return prisma.users.findFirst({
+      where: { phone, status: Status.Published },
+    });
+  }
+
   async findByEmail(email: string): Promise<UserDto | null> {
     return prisma.users.findUnique({
       where: {

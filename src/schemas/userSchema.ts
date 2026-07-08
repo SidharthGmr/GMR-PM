@@ -37,8 +37,23 @@ export const forgotPasswordSchema = z.object({
 
 export const verifyOtpSchema = z.object({
   body: z.object({
-    email: z.string().email("Invalid email address."),
+    email: z.string().email("Invalid email address.").optional(),
+    userId: z.string().optional(),
     otp: z.string().min(4, "OTP is required.").max(8),
+  }).refine(data => data.email || data.userId, {
+    message: "Either email or userId must be provided",
+  }),
+});
+
+export const verifyOtpByIdSchema = z.object({
+  body: z.object({
+    otp: z.string().min(4, "OTP is required.").max(8),
+  }),
+});
+
+export const sendOtpSchema = z.object({
+  body: z.object({
+    email: z.string().email("Invalid email address."),
   }),
 });
 
@@ -99,6 +114,25 @@ export const updateRoleSchema = z.object({
     role: z.enum(["SUPER_ADMIN", "ADMIN", "USER", "STAFF"], {
       error: "Role must be one of: SUPER_ADMIN, ADMIN, USER, STAFF",
     }),
+  }),
+});
+
+// Rule for Super Admin Update (role/status by email, userId, or phone)
+export const superAdminUpdateRoleSchema = z.object({
+  body: z.object({
+    email: z.string().email("Invalid email address").optional(),
+    userId: z.string().optional(),
+    phone: z.string().optional(),
+    role: z.enum(["SUPER_ADMIN", "ADMIN", "USER", "STAFF"], {
+      error: "Role must be one of: SUPER_ADMIN, ADMIN, USER, STAFF",
+    }).optional(),
+    status: z.enum(["Published", "Draft", "Trash"], {
+      error: "Status must be one of: Published, Draft, Trash",
+    }).optional(),
+  }).refine(data => data.email || data.userId || data.phone, {
+    message: "At least one of email, userId, or phone must be provided",
+  }).refine(data => data.role || data.status, {
+    message: "At least one of role or status must be provided",
   }),
 });
 

@@ -135,6 +135,23 @@ export class AccountService implements IAccountService {
     });
   }
 
+  async sendVerificationOtp(userId: string): Promise<UserDto> {
+    const { otp } = generateOtp();
+    const otpExpiresAt = getOtpExpiryDate(10);
+
+    return this.unitOfWork.transaction(async (transactionClient) => {
+      const user = await transactionClient.users.update({
+        where: { userId },
+        data: {
+          emailVerificationToken: otp,
+          emailVerificationExpires: otpExpiresAt,
+        },
+      });
+
+      return this.convertToDto(user);
+    });
+  }
+
   async updateEmailStatus(email: string): Promise<UserDto> {
     return this.unitOfWork.transaction(async (transactionClient) => {
       const user = await transactionClient.users.update({
